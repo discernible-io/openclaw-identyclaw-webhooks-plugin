@@ -1,0 +1,124 @@
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
+
+export type RoditWebhookSendResult = {
+  isValid: boolean;
+  message?: string;
+  requestId?: string;
+  duration?: number;
+  error?: { code?: string; message?: string; requestId?: string };
+};
+
+export type OwnPassportUrls = {
+  webhook_url: string;
+  api_base: string;
+  owner_id: string;
+};
+
+export type RoditClientLike = {
+  getStateManager: () => {
+    getOwnBase64urlJwkPublicKey: () => string | null | undefined;
+    getPeerBase64urlJwkPublicKey: () => string | null | undefined;
+  };
+  getConfigOwnRodit: () => Promise<{
+    own_rodit?: {
+      owner_id?: string;
+      metadata?: Record<string, string>;
+    };
+  }>;
+  sendWakeHook: (data: Record<string, unknown>, req: { user: { rodit_webhookurl: string } }) => Promise<RoditWebhookSendResult>;
+  sendWebhookToEndpoint: (
+    data: Record<string, unknown>,
+    endpoint: string,
+    req: { user: { rodit_webhookurl: string } },
+  ) => Promise<RoditWebhookSendResult>;
+};
+
+function normalizeWebhookBase(raw: string): string {
+  const trimmed = raw.trim().replace(/\/+$/, "");
+  if (!trimmed) return "";
+  if (trimmed.includes("://")) return trimmed;
+  return `https://${trimmed}`;
+}
+
+export async function getOwnPassportUrls(logLevel?: string): Promise<OwnPassportUrls> {
+  const client = await getRoditClient(logLevel);
+  const own = await client.getConfigOwnRodit();
+  const meta = own?.own_rodit?.metadata ?? {};
+  return {
+    webhook_url: normalizeWebhookBase(String(meta.webhook_url || "")),
+    api_base: String(meta.subjectuniqueidentifier_url || "").trim().replace(/\/+$/, ""),
+    owner_id: String(own?.own_rodit?.owner_id || "").trim(),
+  };
+}
+
+let roditClientPromise: Promise<RoditClientLike> | null = null;
+
+export function applyRoditEmbedEnv(logLevel?: string) {
+  if (!process.env.LOG_LEVEL) {
+    process.env.LOG_LEVEL = logLevel ?? "error";
+  }
+  if (process.env.SUPPRESS_NO_CONFIG_WARNING === undefined) {
+    process.env.SUPPRESS_NO_CONFIG_WARNING = "true";
+  }
+  if (process.env.SUPPRESS_STRICTNESS_CHECK === undefined) {
+    process.env.SUPPRESS_STRICTNESS_CHECK = "true";
+  }
+}
+
+export function applyWebhookTlsSkip(skip: boolean) {
+  if (skip) {
+    process.env.SECURITY_OPTIONS_WEBHOOK_TLS_SKIP_VERIFY = "true";
+  }
+}
+
+export function peerBaseToRoditWebhookUrl(baseUrl: string): string {
+  return baseUrl.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+}
+
+export function buildPeerWebhookReq(peerBaseUrl: string): { user: { rodit_webhookurl: string } } {
+  return { user: { rodit_webhookurl: peerBaseToRoditWebhookUrl(peerBaseUrl) } };
+}
+
+export async function getRoditClient(logLevel?: string): Promise<RoditClientLike> {
+  applyRoditEmbedEnv(logLevel);
+  if (!roditClientPromise) {
+    const require = createRequire(import.meta.url);
+    const { RoditClient } = require("@rodit/rodit-auth-be") as {
+      RoditClient: { create: (opts: { role: string }) => Promise<RoditClientLike> };
+    };
+    if (
+      !process.env.NEAR_CREDENTIALS_FILE_PATH?.trim() &&
+      !process.env.RODIT_NEAR_CREDENTIALS_SOURCE?.trim()
+    ) {
+      throw new Error("RODiT credentials not configured (NEAR_CREDENTIALS_FILE_PATH)");
+    }
+    roditClientPromise = RoditClient.create({ role: "client" });
+  }
+  return roditClientPromise;
+}
+
+export type RoditAuth = {
+  authenticate_webhook: (
+    payload: string,
+    signatureHex: string,
+    timestamp: string,
+    publicKeyBase64url: string,
+  ) => Promise<{ isValid: boolean; error?: { code?: string; message?: string } }>;
+};
+
+let roditAuthPromise: Promise<RoditAuth> | null = null;
+
+export function loadRoditAuth(logLevel?: string): RoditAuth {
+  applyRoditEmbedEnv(logLevel);
+  const require = createRequire(import.meta.url);
+  const pkgRoot = dirname(require.resolve("@rodit/rodit-auth-be"));
+  return require(join(pkgRoot, "lib/auth/authentication.js")) as RoditAuth;
+}
+
+export async function getRoditAuth(logLevel?: string): Promise<RoditAuth> {
+  if (!roditAuthPromise) {
+    roditAuthPromise = Promise.resolve(loadRoditAuth(logLevel));
+  }
+  return roditAuthPromise;
+}

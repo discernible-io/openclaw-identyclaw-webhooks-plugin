@@ -1,0 +1,46 @@
+{
+  "name": "@identyclaw/openclaw-identyclaw-webhooks-plugin",
+  "version": "0.1.0",
+  "license": "UNLICENSED",
+  "type": "module",
+  "description": "IdentyClaw OpenClaw webhook ingress with RODiT Ed25519 origin signatures (/hooks/wake, /hooks/agent)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/discernible-io/openclaw-identyclaw-webhooks-plugin.git"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "dist",
+    "openclaw.plugin.json"
+  ],
+  "scripts": {
+    "build": "esbuild index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --packages=external && esbuild send-rodit-webhook.ts --bundle --platform=node --format=esm --outfile=dist/send-rodit-webhook.js --packages=external"
+  },
+  "dependencies": {
+    "@rodit/rodit-auth-be": "9.11.20"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.5.27"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.5",
+    "openclaw": "2026.5.27"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "runtimeExtensions": [
+      "./dist/index.js"
+    ],
+    "compat": {
+      "pluginApi": ">=2026.5.27",
+      "minGatewayVersion": "2026.5.27"
+    }
+  }
+}
