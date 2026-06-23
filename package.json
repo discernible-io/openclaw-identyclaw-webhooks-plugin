@@ -1,21 +1,38 @@
 {
   "name": "@identyclaw/openclaw-identyclaw-webhooks-plugin",
   "version": "0.1.0",
-  "license": "UNLICENSED",
-  "type": "module",
   "description": "IdentyClaw OpenClaw webhook ingress with RODiT Ed25519 origin signatures (/hooks/wake, /hooks/agent)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "files": [
+    "dist",
+    "openclaw.plugin.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "esbuild index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --packages=external && esbuild send-rodit-webhook.ts --bundle --platform=node --format=esm --outfile=dist/send-rodit-webhook.js --packages=external",
+    "prepare:publish": "npm run build && node ./scripts/verify-pack.mjs",
+    "publish:clawhub:dry-run": "node ./scripts/publish-clawhub.mjs --dry-run",
+    "publish:clawhub": "node ./scripts/publish-clawhub.mjs"
+  },
+  "keywords": [
+    "openclaw",
+    "plugin",
+    "webhooks",
+    "rodit",
+    "identyclaw"
+  ],
+  "author": "IdentyClaw",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/discernible-io/openclaw-identyclaw-webhooks-plugin.git"
   },
-  "main": "./dist/index.js",
-  "files": [
-    "dist",
-    "openclaw.plugin.json"
-  ],
-  "scripts": {
-    "build": "esbuild index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --packages=external && esbuild send-rodit-webhook.ts --bundle --platform=node --format=esm --outfile=dist/send-rodit-webhook.js --packages=external"
+  "bugs": {
+    "url": "https://github.com/discernible-io/openclaw-identyclaw-webhooks-plugin/issues"
   },
+  "homepage": "https://github.com/discernible-io/openclaw-identyclaw-webhooks-plugin#readme",
   "dependencies": {
     "@rodit/rodit-auth-be": "9.11.20"
   },
@@ -31,16 +48,20 @@
     "esbuild": "^0.25.5",
     "openclaw": "2026.5.27"
   },
+  "engines": {
+    "node": ">=22.19.0"
+  },
   "openclaw": {
     "extensions": [
-      "./index.ts"
-    ],
-    "runtimeExtensions": [
       "./dist/index.js"
     ],
     "compat": {
       "pluginApi": ">=2026.5.27",
       "minGatewayVersion": "2026.5.27"
+    },
+    "build": {
+      "openclawVersion": "2026.5.27",
+      "pluginSdkVersion": "2026.5.27"
     }
   }
 }

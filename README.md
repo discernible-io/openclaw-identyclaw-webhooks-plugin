@@ -4,13 +4,27 @@ OpenClaw plugin for **RODiT-signed webhook ingress** on agent gateways (`/hooks/
 
 Install alongside [`openclaw-a2a-idc-plugin`](https://github.com/discernible-io/openclaw-a2a-idc-plugin) and [`openclaw-identyclaw-plugin`](https://github.com/discernible-io/openclaw-identyclaw-plugin).
 
+| Artifact | Install |
+| --- | --- |
+| **This plugin** (`identyclaw-webhooks`) | `openclaw plugins install clawhub:@identyclaw/openclaw-identyclaw-webhooks-plugin` |
+| A2A plugin (`identyclaw-a2a`) | `openclaw plugins install clawhub:@identyclaw/openclaw-a2a-plugin` |
+| IdentyClaw tools (`identyclaw-tools`) | `openclaw plugins install clawhub:@identyclaw/openclaw-identyclaw-plugin` |
+
 ## Install
+
+**ClawHub (recommended):**
+
+```bash
+openclaw plugins install clawhub:@identyclaw/openclaw-identyclaw-webhooks-plugin
+```
+
+**Git:**
 
 ```bash
 openclaw plugins install https://github.com/discernible-io/openclaw-identyclaw-webhooks-plugin.git
 ```
 
-Or from a local checkout:
+**Local checkout:**
 
 ```bash
 cd openclaw-identyclaw-webhooks-plugin
@@ -50,6 +64,15 @@ npm install
 npm run build
 ```
 
+## Publish (maintainers)
+
+See [PUBLISH.md](./PUBLISH.md). Pre-flight:
+
+```bash
+npm run prepare:publish
+npm run publish:clawhub:dry-run
+```
+
 ## License
 
-UNLICENSED — Copyright (c) Discernible IO. All rights reserved.
+[Apache-2.0](./LICENSE) — Copyright (c) Discernible IO.
