@@ -1,6 +1,6 @@
 {
   "name": "@identyclaw/openclaw-identyclaw-webhooks-plugin",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "description": "IdentyClaw OpenClaw webhook ingress with RODiT Ed25519 origin signatures (/hooks/wake, /hooks/agent)",
   "type": "module",
   "main": "./dist/index.js",
@@ -34,7 +34,7 @@
   },
   "homepage": "https://github.com/discernible-io/openclaw-identyclaw-webhooks-plugin#readme",
   "dependencies": {
-    "@rodit/rodit-auth-be": "9.11.20"
+    "@rodit/rodit-auth-be": "9.12.0"
   },
   "peerDependencies": {
     "openclaw": ">=2026.5.27"
