@@ -3,13 +3,10 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { a2aPluginConfig } from "./a2a-config.js";
 import { sendRoditWebhook } from "./send-rodit-webhook.js";
-import { getOwnPassportUrls, getRoditAuth, getRoditClient } from "./rodit-runtime.js";
-
-type RoditStateManager = {
-  getOwnBase64urlJwkPublicKey: () => string | null | undefined;
-  getPeerBase64urlJwkPublicKey: () => string | null | undefined;
-};
+import { configurePeerRegistry } from "./peer-registry.js";
+import { getOwnPassportUrls, getRoditAuth, getRoditClient, getWebhookKeyResolver } from "./rodit-runtime.js";
 
 const DEFAULT_ENDPOINTS = ["/hooks/wake", "/hooks/agent"];
 const RECEIPTS_PATH = "/home/node/.openclaw/cache/webhook-receipts.json";
@@ -20,6 +17,8 @@ type WebhookReceipt = {
   path: string;
   event: string | null;
   requestId: string | null;
+  sessionId: string | null;
+  sessionKnown: boolean;
   timestamp: string;
 };
 
@@ -39,7 +38,13 @@ function clearReceipts() {
   persistReceipts();
 }
 
-function recordReceipt(path: string, rawPayload: string, requestIdHeader: string) {
+function recordReceipt(
+  path: string,
+  rawPayload: string,
+  requestIdHeader: string,
+  sessionId: string | null = null,
+  sessionKnown = false,
+) {
   let event: string | null = null;
   let requestId: string | null = requestIdHeader || null;
   try {
@@ -58,6 +63,8 @@ function recordReceipt(path: string, rawPayload: string, requestIdHeader: string
     path,
     event,
     requestId,
+    sessionId: sessionId || null,
+    sessionKnown,
     timestamp: new Date().toISOString(),
   });
   if (webhookReceipts.length > MAX_RECEIPTS) {
@@ -95,52 +102,6 @@ async function readRawBody(req: IncomingMessage, maxBytes = MAX_BODY_BYTES): Pro
     req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
     req.on("error", reject);
   });
-}
-
-function implicitAccountPublicKeyBase64url(tokenId: string): string | null {
-  const normalized = tokenId.trim().toLowerCase();
-  if (!/^[0-9a-f]{64}$/.test(normalized)) return null;
-  return Buffer.from(normalized, "hex").toString("base64url");
-}
-
-function resolveSignerPublicKey(
-  stateManager: RoditStateManager,
-  req: IncomingMessage,
-  rawPayload: string,
-): string | null {
-  const headerTokenId =
-    headerValue(req, "x-rodit-token-id") ||
-    headerValue(req, "x-token-id") ||
-    headerValue(req, "x-rodit-id");
-  if (headerTokenId) {
-    const fromHeader = implicitAccountPublicKeyBase64url(headerTokenId);
-    if (fromHeader) return fromHeader;
-  }
-  try {
-    const parsed = JSON.parse(rawPayload) as Record<string, unknown>;
-    const nested =
-      parsed.data && typeof parsed.data === "object" && !Array.isArray(parsed.data)
-        ? (parsed.data as Record<string, unknown>)
-        : null;
-    const tokenId =
-      (typeof parsed.token_id === "string" && parsed.token_id) ||
-      (typeof parsed.rodit_id === "string" && parsed.rodit_id) ||
-      (typeof parsed.serverTokenId === "string" && parsed.serverTokenId) ||
-      (typeof parsed.peerTokenId === "string" && parsed.peerTokenId) ||
-      (nested && typeof nested.token_id === "string" && nested.token_id) ||
-      (nested && typeof nested.serverTokenId === "string" && nested.serverTokenId) ||
-      (nested && typeof nested.peerTokenId === "string" && nested.peerTokenId) ||
-      "";
-    const fromPayload = implicitAccountPublicKeyBase64url(tokenId);
-    if (fromPayload) return fromPayload;
-  } catch {
-    // ignore
-  }
-  const peerKey = stateManager.getPeerBase64urlJwkPublicKey?.();
-  if (peerKey) return peerKey;
-  const ownKey = stateManager.getOwnBase64urlJwkPublicKey?.();
-  if (ownKey) return ownKey;
-  return null;
 }
 
 async function requestGatewayHeartbeat(mode: "now" | "next-heartbeat") {
@@ -221,9 +182,18 @@ function createRoditWebhookHandler(endpoint: string, logLevel: string | undefine
       return;
     }
     try {
-      const [auth, client] = await Promise.all([getRoditAuth(logLevel), getRoditClient(logLevel)]);
+      const [auth, client, keyResolver] = await Promise.all([
+        getRoditAuth(logLevel),
+        getRoditClient(logLevel),
+        getWebhookKeyResolver(logLevel),
+      ]);
       const stateManager = client.getStateManager();
-      const publicKey = resolveSignerPublicKey(stateManager, req, rawPayload);
+      const resolution = await keyResolver.resolveWebhookSignerKey({
+        headers: req.headers,
+        rawPayload,
+        stateManager,
+      });
+      const publicKey = resolution.key;
       if (!publicKey) {
         sendJson(res, 500, {
           ok: false,
@@ -241,7 +211,21 @@ function createRoditWebhookHandler(endpoint: string, logLevel: string | undefine
         });
         return;
       }
-      recordReceipt(endpoint, rawPayload, headerValue(req, "x-request-id"));
+      // Signature verified: the session id carried in the signed payload is now
+      // trustworthy and links this webhook to the session opened at login.
+      const sessionId = keyResolver.extractWebhookSessionId({ headers: req.headers, rawPayload }) || null;
+      // Cross-reference against the sessions this peer holds open (recorded in
+      // the SessionManager at login), so we can tell whether the webhook maps to
+      // a live session we actually opened.
+      let sessionKnown = false;
+      if (sessionId) {
+        try {
+          sessionKnown = await client.getSessionManager().hasSession(sessionId);
+        } catch {
+          sessionKnown = false;
+        }
+      }
+      recordReceipt(endpoint, rawPayload, headerValue(req, "x-request-id"), sessionId, sessionKnown);
       if (endpoint === "/hooks/wake") {
         const wake = normalizeWakePayload(rawPayload);
         if (!wake.ok) {
@@ -249,14 +233,14 @@ function createRoditWebhookHandler(endpoint: string, logLevel: string | undefine
           return;
         }
         await requestGatewayHeartbeat(wake.mode);
-        sendJson(res, 200, { ok: true, mode: wake.mode });
+        sendJson(res, 200, { ok: true, mode: wake.mode, sessionId, sessionKnown });
         return;
       }
       if (endpoint === "/hooks/agent") {
-        sendJson(res, 200, { ok: true, endpoint: "agent", accepted: true });
+        sendJson(res, 200, { ok: true, endpoint: "agent", accepted: true, sessionId, sessionKnown });
         return;
       }
-      sendJson(res, 200, { ok: true, endpoint });
+      sendJson(res, 200, { ok: true, endpoint, sessionId, sessionKnown });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       logger.error(`[identyclaw-webhooks] ${endpoint} failed: ${message}`);
@@ -275,7 +259,13 @@ export default definePluginEntry({
     const config = (api.config?.plugins?.entries?.["identyclaw-webhooks"]?.config ?? {}) as {
       endpoints?: string[];
       logLevel?: string;
+      persistPeerRegistry?: boolean;
+      peerRegistryPath?: string;
     };
+    configurePeerRegistry({
+      persist: config.persistPeerRegistry === true,
+      cachePath: config.peerRegistryPath?.trim() || undefined,
+    });
     const endpoints = (config.endpoints?.length ? config.endpoints : DEFAULT_ENDPOINTS).map((path) =>
       path.startsWith("/") ? path : `/${path}`,
     );
@@ -313,14 +303,15 @@ export default definePluginEntry({
     api.registerTool({
       name: "send_rodit_webhook",
       description:
-        "Sign and POST a RODiT webhook (/hooks/wake) to a configured A2A peer after a delay. " +
-        "Resolves the peer base URL from plugins.entries.a2a.config.outbound.agents.",
+        "Sign and POST a RODiT webhook (/hooks/wake) to an A2A peer after a delay. " +
+        "Resolves the peer from plugins.entries.identyclaw-a2a (or legacy a2a) outbound.agents, A2A peers.json cache, or by token_id via GET /api/identity/token/{token_id}/full (contactUri).",
       parameters: {
         type: "object",
         properties: {
           peerId: {
             type: "string",
-            description: "Outbound peer id (key in outbound.agents), e.g. agent-a",
+            description:
+              "Outbound peer id (outbound.agents key) or RODiT token_id (resolved via identity API when not configured)",
           },
           text: {
             type: "string",
@@ -373,9 +364,8 @@ export default definePluginEntry({
           if (passport.webhook_url) {
             api.logger.info(`[identyclaw-webhooks] Passport metadata.webhook_url=${passport.webhook_url}`);
           }
-          const configured = (
-            api.config?.plugins?.entries?.a2a?.config as { inbound?: { publicBaseUrl?: string } } | undefined
-          )?.inbound?.publicBaseUrl?.replace(/\/+$/, "");
+          const configured = a2aPluginConfig((api.config ?? {}) as Parameters<typeof a2aPluginConfig>[0])
+            ?.inbound?.publicBaseUrl?.replace(/\/+$/, "");
           if (configured && passport.webhook_url && configured !== passport.webhook_url) {
             api.logger.warn(
               `[identyclaw-webhooks] inbound.publicBaseUrl (${configured}) differs from Passport webhook_url (${passport.webhook_url})`,

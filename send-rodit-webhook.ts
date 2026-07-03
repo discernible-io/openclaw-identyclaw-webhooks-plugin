@@ -1,4 +1,12 @@
 import { readFileSync } from "node:fs";
+import { a2aOutboundConfig, type OpenClawConfig } from "./a2a-config.js";
+import {
+  agentCardUrlToBase,
+  getA2aPersistedPeer,
+  getRegisteredPeer,
+  registerPeerFromTokenId,
+  resolvePeerBaseFromEntry,
+} from "./peer-registry.js";
 import {
   applyWebhookTlsSkip,
   buildPeerWebhookReq,
@@ -6,44 +14,38 @@ import {
   peerBaseToRoditWebhookUrl,
 } from "./rodit-runtime.js";
 
-type OpenClawConfig = {
-  plugins?: {
-    entries?: {
-      a2a?: {
-        config?: {
-          outbound?: {
-            tlsSkipVerify?: boolean;
-            agents?: Record<string, { url?: string; loginBaseUrl?: string }>;
-          };
-        };
-      };
-    };
-  };
-};
+export { agentCardUrlToBase } from "./peer-registry.js";
+export type { OpenClawConfig } from "./a2a-config.js";
 
-export function agentCardUrlToBase(url: string): string {
-  const trimmed = url.trim().replace(/\/$/, "");
-  if (trimmed.endsWith("/.well-known/agent-card.json")) {
-    return trimmed.slice(0, -"/.well-known/agent-card.json".length);
-  }
-  return trimmed;
-}
-
-export function resolveOutboundPeerBase(config: OpenClawConfig, peerId: string): string {
-  const peer = config.plugins?.entries?.a2a?.config?.outbound?.agents?.[peerId];
-  const cardUrl = peer?.url?.trim();
-  const loginBase = peer?.loginBaseUrl?.trim();
+export function resolveConfiguredPeerBase(
+  config: OpenClawConfig,
+  peerId: string,
+): string | null {
+  const peer = a2aOutboundConfig(config)?.agents?.[peerId];
+  if (!peer) return null;
+  const cardUrl = (typeof peer === "string" ? peer : peer?.url)?.trim();
+  const loginBase = (typeof peer === "object" ? peer?.loginBaseUrl : "")?.trim();
   if (cardUrl) return agentCardUrlToBase(cardUrl);
   if (loginBase) return loginBase.replace(/\/$/, "");
-  const known = Object.keys(config.plugins?.entries?.a2a?.config?.outbound?.agents ?? {});
-  throw new Error(
-    `Peer '${peerId}' not found in plugins.entries.a2a.config.outbound.agents` +
-      (known.length ? ` (configured: ${known.join(", ")})` : ""),
-  );
+  return null;
+}
+
+export async function resolveOutboundPeerBase(config: OpenClawConfig, peerId: string): Promise<string> {
+  const configured = resolveConfiguredPeerBase(config, peerId);
+  if (configured) return configured;
+
+  const a2aCached = getA2aPersistedPeer(peerId);
+  if (a2aCached) return resolvePeerBaseFromEntry(a2aCached);
+
+  const cached = getRegisteredPeer(peerId);
+  if (cached) return resolvePeerBaseFromEntry(cached);
+
+  const entry = await registerPeerFromTokenId(peerId);
+  return resolvePeerBaseFromEntry(entry);
 }
 
 export function outboundTlsSkipVerify(config: OpenClawConfig): boolean {
-  return config.plugins?.entries?.a2a?.config?.outbound?.tlsSkipVerify === true;
+  return a2aOutboundConfig(config)?.tlsSkipVerify === true;
 }
 
 export function loadNearSignerFromEnv(): { accountId: string; privateKey: string } {
@@ -79,7 +81,7 @@ export async function sendRoditWebhook(opts: {
 }): Promise<SendRoditWebhookResult> {
   const delaySeconds = opts.delaySeconds ?? 10;
   const hookPath = (opts.hookPath ?? "hooks/wake").replace(/^\/+/, "");
-  const targetBase = resolveOutboundPeerBase(opts.config, opts.peerId);
+  const targetBase = await resolveOutboundPeerBase(opts.config, opts.peerId);
   const tlsSkipVerify = outboundTlsSkipVerify(opts.config);
   const signer = loadNearSignerFromEnv();
   const endpoint = `/${hookPath}`;
@@ -99,16 +101,22 @@ export async function sendRoditWebhook(opts: {
     data: {
       mode: "now",
       token_id: signer.accountId,
-      peerTokenId: signer.accountId,
+      peerTokenId: opts.peerId.trim(),
     },
   };
+
+  // Best-effort session correlation: if this peer issued a JWT to the recipient
+  // (login_client), its SessionManager holds a session keyed by the recipient's
+  // roditId; the SDK resolves the shared session id from storage and stamps it
+  // into the signed webhook payload.
+  const sendOptions = { sessionRoditId: opts.peerId.trim() };
 
   let sdkResult;
   try {
     sdkResult =
       endpoint === "/hooks/wake"
-        ? await client.sendWakeHook(payload, peerReq)
-        : await client.sendWebhookToEndpoint(payload, endpoint, peerReq);
+        ? await client.sendWakeHook(payload, peerReq, sendOptions)
+        : await client.sendWebhookToEndpoint(payload, endpoint, peerReq, sendOptions);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return {

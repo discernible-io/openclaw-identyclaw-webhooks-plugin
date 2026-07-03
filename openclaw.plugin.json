@@ -2,7 +2,7 @@
   "id": "identyclaw-webhooks",
   "name": "IdentyClaw Webhooks",
   "description": "Inbound OpenClaw webhooks with RODiT Ed25519 origin signatures (x-signature + x-timestamp)",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "contracts": {
     "tools": ["send_rodit_webhook"]
   },
@@ -21,6 +21,14 @@
       "logLevel": {
         "type": "string",
         "description": "Winston log level for @rodit/rodit-auth-be (default error)"
+      },
+      "persistPeerRegistry": {
+        "type": "boolean",
+        "description": "Persist dynamically resolved peers (from identity API) to disk cache"
+      },
+      "peerRegistryPath": {
+        "type": "string",
+        "description": "Path for peer registry cache (default /home/node/.openclaw/cache/peer-registry.json)"
       }
     }
   }

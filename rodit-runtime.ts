@@ -20,18 +20,39 @@ export type RoditClientLike = {
     getOwnBase64urlJwkPublicKey: () => string | null | undefined;
     getPeerBase64urlJwkPublicKey: () => string | null | undefined;
   };
+  getSessionManager: () => {
+    hasSession: (sessionId: string) => Promise<boolean>;
+  };
   getConfigOwnRodit: () => Promise<{
     own_rodit?: {
       owner_id?: string;
       metadata?: Record<string, string>;
     };
   }>;
-  sendWakeHook: (data: Record<string, unknown>, req: { user: { rodit_webhookurl: string } }) => Promise<RoditWebhookSendResult>;
+  getSessionToken: () => Promise<string | null>;
+  login_server: (opts?: { loginPath?: string }) => Promise<{ success?: boolean; jwt_token?: string }>;
+  request: (
+    method: string,
+    path: string,
+    data?: unknown,
+    options?: Record<string, unknown>,
+  ) => Promise<unknown>;
+  sendWakeHook: (
+    data: Record<string, unknown>,
+    req: { user: { rodit_webhookurl: string } },
+    options?: WebhookSendOptions,
+  ) => Promise<RoditWebhookSendResult>;
   sendWebhookToEndpoint: (
     data: Record<string, unknown>,
     endpoint: string,
     req: { user: { rodit_webhookurl: string } },
+    options?: WebhookSendOptions,
   ) => Promise<RoditWebhookSendResult>;
+};
+
+export type WebhookSendOptions = {
+  sessionId?: string;
+  sessionRoditId?: string;
 };
 
 function normalizeWebhookBase(raw: string): string {
@@ -121,4 +142,46 @@ export async function getRoditAuth(logLevel?: string): Promise<RoditAuth> {
     roditAuthPromise = Promise.resolve(loadRoditAuth(logLevel));
   }
   return roditAuthPromise;
+}
+
+export type WebhookKeyResolution = { key: string | null; source: string; tokenId: string };
+
+export type WebhookKeyResolver = {
+  resolveWebhookSignerKey: (params: {
+    headers?: Record<string, string | string[] | undefined>;
+    rawPayload?: string;
+    parsedBody?: unknown;
+    stateManager?: unknown;
+    tokenId?: string;
+    advertisedKeyBase64url?: string;
+  }) => Promise<WebhookKeyResolution>;
+  rememberPeerKey: (tokenId: string, base64urlKey: string) => void;
+  configureWebhookKeyResolver: (options: {
+    lookup?: (tokenId: string) => Promise<string | null>;
+    allowUnboundAdvertisedKey?: boolean;
+  }) => void;
+  extractWebhookSessionId: (params: {
+    headers?: Record<string, string | string[] | undefined>;
+    rawPayload?: string;
+    parsedBody?: unknown;
+  }) => string;
+};
+
+// Cached load of the SDK's shared resolver. Requires @rodit/rodit-auth-be
+// >= 9.12.0; if the module is absent the require throws, which is intentional —
+// the plugin depends on the shared resolver and must not silently degrade.
+let webhookKeyResolverPromise: Promise<WebhookKeyResolver> | null = null;
+
+export function loadWebhookKeyResolver(logLevel?: string): WebhookKeyResolver {
+  applyRoditEmbedEnv(logLevel);
+  const require = createRequire(import.meta.url);
+  const pkgRoot = dirname(require.resolve("@rodit/rodit-auth-be"));
+  return require(join(pkgRoot, "lib/auth/webhookkeyresolver.js")) as WebhookKeyResolver;
+}
+
+export async function getWebhookKeyResolver(logLevel?: string): Promise<WebhookKeyResolver> {
+  if (!webhookKeyResolverPromise) {
+    webhookKeyResolverPromise = Promise.resolve(loadWebhookKeyResolver(logLevel));
+  }
+  return webhookKeyResolverPromise;
 }
