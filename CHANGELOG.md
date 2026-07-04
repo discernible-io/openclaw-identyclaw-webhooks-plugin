@@ -4,9 +4,9 @@
 
 ## 0.1.5 — 2026-07-04
 
-- Inbound verification uses `extractWebhookSignerKey` from `@rodit/rodit-auth-be`
-  `webhookhandlermw.js` (signer key from request headers), not
-  `StateManager.getPeerBase64urlJwkPublicKey()` or `webhookkeyresolver.js`.
+- Inbound verification resolves the signer key from webhook headers when present,
+  otherwise falls back to `StateManager.getPeerBase64urlJwkPublicKey()` from login
+  (same contract as SDK `webhookhandlermw.js`), then calls `authenticate_webhook`.
 - Outbound peer resolution prefers `metadata.webhook_url` from identity `/full`
   before falling back to `contactUri` parsing (fixes wrong targets like
   `https://agenthood.me/hooks/wake` when email authority differs from gateway).

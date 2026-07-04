@@ -7,10 +7,11 @@ import { a2aPluginConfig } from "./a2a-config.js";
 import { sendRoditWebhook } from "./send-rodit-webhook.js";
 import { configurePeerRegistry } from "./peer-registry.js";
 import {
+  extractWebhookSessionId,
+  extractWebhookSignerKey,
   getOwnPassportUrls,
   getRoditAuth,
   getRoditClient,
-  getWebhookMiddleware,
 } from "./rodit-runtime.js";
 
 const DEFAULT_ENDPOINTS = ["/hooks/wake", "/hooks/agent"];
@@ -188,12 +189,9 @@ function createRoditWebhookHandler(endpoint: string, logLevel: string | undefine
       return;
     }
     try {
-      const [auth, client, webhookMw] = await Promise.all([
-        getRoditAuth(logLevel),
-        getRoditClient(logLevel),
-        getWebhookMiddleware(logLevel),
-      ]);
-      const resolution = webhookMw.extractWebhookSignerKey(req.headers);
+      const [auth, client] = await Promise.all([getRoditAuth(logLevel), getRoditClient(logLevel)]);
+      const stateManager = client.getStateManager();
+      const resolution = extractWebhookSignerKey(req.headers, stateManager);
       const publicKey = resolution.key?.trim() || null;
       if (!publicKey) {
         sendJson(res, 401, {
@@ -217,7 +215,7 @@ function createRoditWebhookHandler(endpoint: string, logLevel: string | undefine
       }
       // Signature verified: the session id carried in the signed payload is now
       // trustworthy and links this webhook to the session opened at login.
-      const sessionId = webhookMw.extractWebhookSessionId({
+      const sessionId = extractWebhookSessionId({
         headers: req.headers,
         rawPayload,
       });
