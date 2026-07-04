@@ -2,7 +2,13 @@
 
 > **IdentyClaw component service:** OpenClaw plugin for **RODiT-signed webhook ingress** on agent gateways (`/hooks/wake`, `/hooks/agent`) and outbound delivery via `send_rodit_webhook`. Webhook signing and verification follow the same contract as [`idclawserver-idc`](https://github.com/discernible-io/idclawserver-idc) (via [`@rodit/rodit-auth-be`](https://www.npmjs.com/package/@rodit/rodit-auth-be) — not vendored). See [`idclawserver-idc` OpenClaw integration guide](https://github.com/discernible-io/idclawserver-idc/blob/main/references/openclaw-integration-guide.md) for Passport `webhook_url` metadata and event mapping.
 
+![IdentyClaw Webhooks Gateway Component](images/identyclaw-webhooks-banner.svg)
+
 [![GitHub](https://img.shields.io/github/stars/discernible-io/openclaw-identyclaw-webhooks-plugin?style=social)](https://github.com/discernible-io/openclaw-identyclaw-webhooks-plugin) [![npm version](https://img.shields.io/npm/v/@identyclaw/openclaw-identyclaw-webhooks-plugin.svg?label=npm)](https://www.npmjs.com/package/@identyclaw/openclaw-identyclaw-webhooks-plugin) [![License](https://img.shields.io/github/license/discernible-io/openclaw-identyclaw-webhooks-plugin)](https://github.com/discernible-io/openclaw-identyclaw-webhooks-plugin/blob/main/LICENSE) [![RODiT webhooks](https://img.shields.io/badge/webhooks-RODiT%20Ed25519-14b8a6)](https://github.com/discernible-io/idclawserver-idc)
+
+<p align="center">
+  <img src="images/identyclaw-webhooks-ecosystem.svg" alt="IdentyClaw stack: OpenClaw gateway, this webhooks component, and idclawserver-idc webhook contract" width="960"/>
+</p>
 
 ## Role in the IdentyClaw stack
 

@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 320" role="img" aria-labelledby="title desc">
+  <title id="title">IdentyClaw Webhooks component in the OpenClaw stack</title>
+  <desc id="desc">Diagram showing how this plugin connects OpenClaw gateways to RODiT-signed webhook ingress and outbound delivery aligned with idclawserver-idc.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b1220"/>
+      <stop offset="100%" stop-color="#102a43"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#14b8a6"/>
+      <stop offset="100%" stop-color="#38bdf8"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#67e8f9"/>
+    </marker>
+  </defs>
+
+  <rect width="960" height="320" rx="16" fill="url(#bg)"/>
+
+  <text x="32" y="42" fill="#e2e8f0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="700">IdentyClaw OpenClaw stack</text>
+  <text x="32" y="68" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14">This plugin is the RODiT webhook ingress component  signing aligns with idclawserver-idc</text>
+
+  <!-- OpenClaw gateway -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="110" width="200" height="140" rx="12" fill="#111827" stroke="#334155" stroke-width="1.5"/>
+    <rect x="40" y="110" width="200" height="34" rx="12" fill="#1e293b"/>
+    <rect x="40" y="132" width="200" height="12" fill="#1e293b"/>
+    <text x="140" y="132" text-anchor="middle" fill="#f8fafc" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700">OpenClaw Gateway</text>
+    <text x="140" y="168" text-anchor="middle" fill="#cbd5e1" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">Agent runtime</text>
+    <text x="140" y="188" text-anchor="middle" fill="#94a3b8" font-family="ui-monospace, monospace" font-size="11">chat + tools</text>
+    <text x="140" y="206" text-anchor="middle" fill="#94a3b8" font-family="ui-monospace, monospace" font-size="11">heartbeat / tasks</text>
+    <text x="140" y="232" text-anchor="middle" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11">identyclaw-a2a (optional)</text>
+  </g>
+
+  <!-- This plugin -->
+  <g filter="url(#shadow)">
+    <rect x="300" y="96" width="260" height="168" rx="12" fill="#0f172a" stroke="url(#accent)" stroke-width="2"/>
+    <rect x="300" y="96" width="260" height="36" rx="12" fill="#064e3b"/>
+    <rect x="300" y="120" width="260" height="12" fill="#064e3b"/>
+    <text x="430" y="120" text-anchor="middle" fill="#ecfdf5" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700">identyclaw-webhooks (this repo)</text>
+    <text x="430" y="152" text-anchor="middle" fill="#a7f3d0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">RODiT Ed25519 webhook ingress</text>
+    <text x="430" y="176" text-anchor="middle" fill="#6ee7b7" font-family="ui-monospace, monospace" font-size="11">POST /hooks/wake</text>
+    <text x="430" y="196" text-anchor="middle" fill="#6ee7b7" font-family="ui-monospace, monospace" font-size="11">POST /hooks/agent</text>
+    <text x="430" y="216" text-anchor="middle" fill="#6ee7b7" font-family="ui-monospace, monospace" font-size="11">send_rodit_webhook tool</text>
+    <text x="430" y="244" text-anchor="middle" fill="#5eead4" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11">x-signature + x-timestamp</text>
+  </g>
+
+  <!-- Reference server -->
+  <g filter="url(#shadow)">
+    <rect x="620" y="110" width="300" height="140" rx="12" fill="#111827" stroke="#475569" stroke-width="1.5" stroke-dasharray="6 4"/>
+    <rect x="620" y="110" width="300" height="34" rx="12" fill="#1e293b"/>
+    <rect x="620" y="132" width="300" height="12" fill="#1e293b"/>
+    <text x="770" y="132" text-anchor="middle" fill="#f8fafc" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700">idclawserver-idc (reference)</text>
+    <text x="770" y="168" text-anchor="middle" fill="#cbd5e1" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">Passport API + webhook contract</text>
+    <text x="770" y="192" text-anchor="middle" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11">sendWebhookToEndpoint</text>
+    <text x="770" y="214" text-anchor="middle" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11">webhook_url · token metadata</text>
+    <text x="770" y="236" text-anchor="middle" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11">not vendored  same auth surface</text>
+  </g>
+
+  <!-- Remote peer -->
+  <g filter="url(#shadow)">
+    <rect x="760" y="268" width="160" height="36" rx="8" fill="#172554" stroke="#3b82f6" stroke-width="1.5"/>
+    <text x="840" y="291" text-anchor="middle" fill="#dbeafe" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600">Remote Passport peer</text>
+  </g>
+
+  <!-- Arrows -->
+  <path d="M240 180 H300" stroke="#67e8f9" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="270" y="170" text-anchor="middle" fill="#7dd3fc" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10">loads</text>
+
+  <path d="M560 180 H620" stroke="#67e8f9" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="590" y="170" text-anchor="middle" fill="#7dd3fc" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10">same webhook</text>
+  <text x="590" y="198" text-anchor="middle" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10">contract</text>
+
+  <path d="M770 250 C770 280 520 280 430 264" fill="none" stroke="#14b8a6" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="600" y="278" text-anchor="middle" fill="#6ee7b7" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10">POST signed webhooks</text>
+
+  <path d="M520 264 C620 300 700 300 760 286" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="650" y="308" text-anchor="middle" fill="#7dd3fc" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10">send_rodit_webhook</text>
+</svg>
