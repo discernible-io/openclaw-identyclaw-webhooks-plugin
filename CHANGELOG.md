@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.5 — 2026-07-04
+
 - Inbound verification uses `extractWebhookSignerKey` from `@rodit/rodit-auth-be`
   `webhookhandlermw.js` (signer key from request headers), not
   `StateManager.getPeerBase64urlJwkPublicKey()` or `webhookkeyresolver.js`.
