@@ -144,44 +144,35 @@ export async function getRoditAuth(logLevel?: string): Promise<RoditAuth> {
   return roditAuthPromise;
 }
 
-export type WebhookKeyResolution = { key: string | null; source: string; tokenId: string };
-
-export type WebhookKeyResolver = {
-  resolveWebhookSignerKey: (params: {
-    headers?: Record<string, string | string[] | undefined>;
-    rawPayload?: string;
-    parsedBody?: unknown;
-    stateManager?: unknown;
-    tokenId?: string;
-    advertisedKeyBase64url?: string;
-  }) => Promise<WebhookKeyResolution>;
-  rememberPeerKey: (tokenId: string, base64urlKey: string) => void;
-  configureWebhookKeyResolver: (options: {
-    lookup?: (tokenId: string) => Promise<string | null>;
-    allowUnboundAdvertisedKey?: boolean;
-  }) => void;
-  extractWebhookSessionId: (params: {
-    headers?: Record<string, string | string[] | undefined>;
-    rawPayload?: string;
-    parsedBody?: unknown;
-  }) => string;
+export type WebhookSignerResolution = {
+  key: string | null;
+  source: string;
+  implicitAccount: string;
 };
 
-// Cached load of the SDK's shared resolver. Requires @rodit/rodit-auth-be
-// >= 9.12.0; if the module is absent the require throws, which is intentional —
-// the plugin depends on the shared resolver and must not silently degrade.
-let webhookKeyResolverPromise: Promise<WebhookKeyResolver> | null = null;
+export type WebhookMiddlewareHelpers = {
+  extractWebhookSignerKey: (
+    headers: Record<string, string | string[] | undefined>,
+  ) => WebhookSignerResolution;
+  extractWebhookSessionId: (opts: {
+    headers?: Record<string, string | string[] | undefined>;
+    rawPayload?: string;
+    parsedBody?: unknown;
+  }) => string | null;
+};
 
-export function loadWebhookKeyResolver(logLevel?: string): WebhookKeyResolver {
+let webhookMiddlewarePromise: Promise<WebhookMiddlewareHelpers> | null = null;
+
+export function loadWebhookMiddleware(logLevel?: string): WebhookMiddlewareHelpers {
   applyRoditEmbedEnv(logLevel);
   const require = createRequire(import.meta.url);
   const pkgRoot = dirname(require.resolve("@rodit/rodit-auth-be"));
-  return require(join(pkgRoot, "lib/auth/webhookkeyresolver.js")) as WebhookKeyResolver;
+  return require(join(pkgRoot, "lib/middleware/webhookhandlermw.js")) as WebhookMiddlewareHelpers;
 }
 
-export async function getWebhookKeyResolver(logLevel?: string): Promise<WebhookKeyResolver> {
-  if (!webhookKeyResolverPromise) {
-    webhookKeyResolverPromise = Promise.resolve(loadWebhookKeyResolver(logLevel));
+export async function getWebhookMiddleware(logLevel?: string): Promise<WebhookMiddlewareHelpers> {
+  if (!webhookMiddlewarePromise) {
+    webhookMiddlewarePromise = Promise.resolve(loadWebhookMiddleware(logLevel));
   }
-  return webhookKeyResolverPromise;
+  return webhookMiddlewarePromise;
 }

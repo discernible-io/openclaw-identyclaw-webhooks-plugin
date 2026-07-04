@@ -6,7 +6,12 @@ import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { a2aPluginConfig } from "./a2a-config.js";
 import { sendRoditWebhook } from "./send-rodit-webhook.js";
 import { configurePeerRegistry } from "./peer-registry.js";
-import { getOwnPassportUrls, getRoditAuth, getRoditClient, getWebhookKeyResolver } from "./rodit-runtime.js";
+import {
+  getOwnPassportUrls,
+  getRoditAuth,
+  getRoditClient,
+  getWebhookMiddleware,
+} from "./rodit-runtime.js";
 
 const DEFAULT_ENDPOINTS = ["/hooks/wake", "/hooks/agent"];
 const RECEIPTS_PATH = "/home/node/.openclaw/cache/webhook-receipts.json";
@@ -85,6 +90,7 @@ function sendJson(res: ServerResponse, status: number, body: Record<string, unkn
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.end(JSON.stringify(body));
 }
+
 
 async function readRawBody(req: IncomingMessage, maxBytes = MAX_BODY_BYTES): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -182,23 +188,21 @@ function createRoditWebhookHandler(endpoint: string, logLevel: string | undefine
       return;
     }
     try {
-      const [auth, client, keyResolver] = await Promise.all([
+      const [auth, client, webhookMw] = await Promise.all([
         getRoditAuth(logLevel),
         getRoditClient(logLevel),
-        getWebhookKeyResolver(logLevel),
+        getWebhookMiddleware(logLevel),
       ]);
-      const stateManager = client.getStateManager();
-      const resolution = await keyResolver.resolveWebhookSignerKey({
-        headers: req.headers,
-        rawPayload,
-        stateManager,
-      });
-      const publicKey = resolution.key;
+      const resolution = webhookMw.extractWebhookSignerKey(req.headers);
+      const publicKey = resolution.key?.trim() || null;
       if (!publicKey) {
-        sendJson(res, 500, {
+        sendJson(res, 401, {
           ok: false,
-          code: "SIGNER_KEY_UNAVAILABLE",
-          message: "Unable to resolve signer public key for webhook verification",
+          code:
+            resolution.source === "implicit_mismatch"
+              ? "SIGNER_KEY_MISMATCH"
+              : "MISSING_SIGNER_KEY",
+          message: "Webhook signer public key not present in request",
         });
         return;
       }
@@ -213,7 +217,10 @@ function createRoditWebhookHandler(endpoint: string, logLevel: string | undefine
       }
       // Signature verified: the session id carried in the signed payload is now
       // trustworthy and links this webhook to the session opened at login.
-      const sessionId = keyResolver.extractWebhookSessionId({ headers: req.headers, rawPayload }) || null;
+      const sessionId = webhookMw.extractWebhookSessionId({
+        headers: req.headers,
+        rawPayload,
+      });
       // Cross-reference against the sessions this peer holds open (recorded in
       // the SessionManager at login), so we can tell whether the webhook maps to
       // a live session we actually opened.

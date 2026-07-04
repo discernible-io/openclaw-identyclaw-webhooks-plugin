@@ -36,6 +36,7 @@ export type OutboundPeerEntry = {
 
 export type TokenIdentityFull = {
   tokenId?: string;
+  metadata?: Record<string, unknown> | null;
   dn?: {
     contactUri?: string | null;
   } | null;
@@ -128,6 +129,38 @@ export function parseContactUri(contactUri: string): Omit<OutboundPeerEntry, "to
   return { loginBaseUrl: loginBaseUrl.replace(/\/$/, ""), contactUri: trimmed };
 }
 
+function parseWebhookBase(raw: string): string {
+  const trimmed = String(raw || "").trim().replace(/\/+$/, "");
+  if (!trimmed) return "";
+  try {
+    const u = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return trimmed;
+  }
+}
+
+function extractWebhookUrlFromIdentity(identity: TokenIdentityFull): string {
+  const meta = identity?.metadata;
+  if (meta && typeof meta === "object" && !Array.isArray(meta)) {
+    const fromMeta = String(meta.webhook_url ?? meta.webhookUrl ?? "").trim();
+    if (fromMeta) return fromMeta;
+  }
+  return "";
+}
+
+function entryFromWebhookUrl(webhookUrl: string, contactUri: string): Omit<OutboundPeerEntry, "tokenId" | "registeredAt"> {
+  const base = parseWebhookBase(webhookUrl);
+  if (!base || !/^https?:\/\//i.test(base)) {
+    throw new Error(`Identity has no usable metadata.webhook_url for outbound delivery`);
+  }
+  return {
+    url: `${base}/.well-known/agent-card.json`,
+    loginBaseUrl: base,
+    contactUri: contactUri || webhookUrl,
+  };
+}
+
 export function resolvePeerBaseFromEntry(entry: Pick<OutboundPeerEntry, "url" | "loginBaseUrl" | "webhookHost">): string {
   const cardUrl = entry.url?.trim();
   if (cardUrl) return agentCardUrlToBase(cardUrl);
@@ -207,9 +240,13 @@ export async function registerPeerFromTokenId(
 
   const roditClient = (client ?? (await getRoditClient())) as RoditApiClient;
   const identity = await fetchTokenIdentityFull(roditClient, normalized);
-  const contactUri = identity?.dn?.contactUri?.trim();
+  const contactUri = identity?.dn?.contactUri?.trim() ?? "";
+  const webhookUrl = extractWebhookUrlFromIdentity(identity);
+  if (webhookUrl) {
+    return registerPeer(normalized, entryFromWebhookUrl(webhookUrl, contactUri));
+  }
   if (!contactUri) {
-    throw new Error(`Peer '${normalized}' has no contactUri in identity token/full response`);
+    throw new Error(`Peer '${normalized}' has no metadata.webhook_url or contactUri in identity token/full response`);
   }
 
   const parsed = parseContactUri(contactUri);
