@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.1.6 — 2026-07-04
+
+- Fix inbound signer lookup: delegate to SDK `webhookhandlermw.extractWebhookSignerKey`
+  instead of reimplementing it. The local resolver wrongly treated `X-Rodit-Token-Id`
+  (Passport id) as a 64-char NEAR implicit account hex, causing immediate
+  `SIGNER_KEY_MISMATCH` for all rodit-auth-be signed webhooks that send
+  `X-Rodit-Implicit-Account` / `X-Rodit-Public-Key`. Session id extraction now
+  also uses the SDK helper.
+
 ## 0.1.5 — 2026-07-04
 
 - Inbound verification resolves the signer key from webhook headers when present,

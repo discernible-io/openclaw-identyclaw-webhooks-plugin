@@ -150,46 +150,42 @@ export type WebhookSignerResolution = {
   implicitAccount: string;
 };
 
+export type WebhookMiddlewareHelpers = {
+  extractWebhookSignerKey: (
+    headers: Record<string, string | string[] | undefined>,
+  ) => WebhookSignerResolution;
+  extractWebhookSessionId: (opts: {
+    headers?: Record<string, string | string[] | undefined>;
+    rawPayload?: string;
+    parsedBody?: unknown;
+  }) => string | null;
+};
+
 type RoditStateManagerLike = {
   getPeerBase64urlJwkPublicKey?: () => string | null | undefined;
 };
 
-function webhookHeaderValue(
-  headers: Record<string, string | string[] | undefined>,
-  name: string,
-): string {
-  const raw = headers[name.toLowerCase()];
-  if (typeof raw === "string") return raw.trim();
-  if (Array.isArray(raw) && raw.length > 0) return String(raw[0]).trim();
-  return "";
-}
-
-function implicitAccountPublicKeyBase64url(tokenId: string): string | null {
-  const normalized = tokenId.trim().toLowerCase();
-  if (!/^[0-9a-f]{64}$/.test(normalized)) return null;
-  return Buffer.from(normalized, "hex").toString("base64url");
+export function loadWebhookMiddleware(logLevel?: string): WebhookMiddlewareHelpers {
+  applyRoditEmbedEnv(logLevel);
+  const require = createRequire(import.meta.url);
+  const pkgRoot = dirname(require.resolve("@rodit/rodit-auth-be"));
+  return require(join(pkgRoot, "lib/middleware/webhookhandlermw.js")) as WebhookMiddlewareHelpers;
 }
 
 export function extractWebhookSignerKey(
   headers: Record<string, string | string[] | undefined>,
   stateManager?: RoditStateManagerLike,
 ): WebhookSignerResolution {
-  const tokenId =
-    webhookHeaderValue(headers, "x-rodit-token-id") ||
-    webhookHeaderValue(headers, "x-token-id") ||
-    webhookHeaderValue(headers, "x-rodit-id");
-  if (tokenId) {
-    const key = implicitAccountPublicKeyBase64url(tokenId);
-    if (key) {
-      return { key, source: "header_implicit", implicitAccount: tokenId };
-    }
-    return { key: null, source: "implicit_mismatch", implicitAccount: tokenId };
+  const sdk = loadWebhookMiddleware();
+  const resolution = sdk.extractWebhookSignerKey(headers);
+  if (resolution.key?.trim()) {
+    return resolution;
   }
   const peerKey = stateManager?.getPeerBase64urlJwkPublicKey?.()?.trim();
   if (peerKey) {
     return { key: peerKey, source: "state_manager_peer", implicitAccount: "" };
   }
-  return { key: null, source: "none", implicitAccount: "" };
+  return resolution;
 }
 
 export function extractWebhookSessionId(opts: {
@@ -197,23 +193,5 @@ export function extractWebhookSessionId(opts: {
   rawPayload?: string;
   parsedBody?: unknown;
 }): string | null {
-  if (opts.parsedBody && typeof opts.parsedBody === "object" && !Array.isArray(opts.parsedBody)) {
-    const parsed = opts.parsedBody as Record<string, unknown>;
-    const nested =
-      parsed.data && typeof parsed.data === "object" && !Array.isArray(parsed.data)
-        ? (parsed.data as Record<string, unknown>)
-        : null;
-    const sessionId =
-      (typeof parsed.session_id === "string" && parsed.session_id) ||
-      (nested && typeof nested.session_id === "string" && nested.session_id) ||
-      "";
-    const trimmed = sessionId.trim();
-    return trimmed || null;
-  }
-  if (!opts.rawPayload?.trim()) return null;
-  try {
-    return extractWebhookSessionId({ parsedBody: JSON.parse(opts.rawPayload) as unknown });
-  } catch {
-    return null;
-  }
+  return loadWebhookMiddleware().extractWebhookSessionId(opts);
 }
