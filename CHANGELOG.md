@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.1.7 — 2026-07-06
+
+- Fix `send_rodit_webhook`: catch identity API `IDENTITY_NOT_FOUND` (404) for
+  unknown/unconfigured `peerId` and return `{ ok: false, … }` instead of throwing.
+
 ## 0.1.6 — 2026-07-04
 
 - Fix inbound signer lookup: delegate to SDK `webhookhandlermw.extractWebhookSignerKey`

@@ -1,6 +1,6 @@
 {
   "name": "@identyclaw/openclaw-identyclaw-webhooks-plugin",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "IdentyClaw OpenClaw webhook ingress with RODiT Ed25519 origin signatures (/hooks/wake, /hooks/agent)",
   "type": "module",
   "main": "./dist/index.js",

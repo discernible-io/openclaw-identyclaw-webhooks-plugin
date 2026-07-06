@@ -72,6 +72,16 @@ export type SendRoditWebhookResult = {
   response: unknown;
 };
 
+function isIdentityNotFoundError(err: unknown): boolean {
+  if (err && typeof err === "object") {
+    const apiErr = err as { code?: string; statusCode?: number };
+    if (apiErr.code === "IDENTITY_NOT_FOUND") return true;
+    if (apiErr.statusCode === 404) return true;
+  }
+  const message = err instanceof Error ? err.message : String(err);
+  return message.includes("IDENTITY_NOT_FOUND");
+}
+
 export async function sendRoditWebhook(opts: {
   config: OpenClawConfig;
   peerId: string;
@@ -81,12 +91,32 @@ export async function sendRoditWebhook(opts: {
 }): Promise<SendRoditWebhookResult> {
   const delaySeconds = opts.delaySeconds ?? 10;
   const hookPath = (opts.hookPath ?? "hooks/wake").replace(/^\/+/, "");
-  const targetBase = await resolveOutboundPeerBase(opts.config, opts.peerId);
+  const peerId = opts.peerId.trim();
+
+  let targetBase: string;
+  try {
+    targetBase = await resolveOutboundPeerBase(opts.config, peerId);
+  } catch (err) {
+    if (isIdentityNotFoundError(err)) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        url: "",
+        peerId: opts.peerId,
+        requestId: "",
+        delaySeconds,
+        status: 404,
+        ok: false,
+        response: { error: message, code: "IDENTITY_NOT_FOUND", peerId },
+      };
+    }
+    throw err;
+  }
+
   const tlsSkipVerify = outboundTlsSkipVerify(opts.config);
   const signer = loadNearSignerFromEnv();
   const endpoint = `/${hookPath}`;
   const url = `${targetBase.replace(/\/+$/, "")}${endpoint}`;
-  const wakeText = opts.text?.trim() || `Webhook ping to ${opts.peerId} via send_rodit_webhook`;
+  const wakeText = opts.text?.trim() || `Webhook ping to ${peerId} via send_rodit_webhook`;
 
   if (delaySeconds > 0) {
     await new Promise((resolve) => setTimeout(resolve, delaySeconds * 1000));
@@ -101,7 +131,7 @@ export async function sendRoditWebhook(opts: {
     data: {
       mode: "now",
       token_id: signer.accountId,
-      peerTokenId: opts.peerId.trim(),
+      peerTokenId: peerId,
     },
   };
 
@@ -109,7 +139,7 @@ export async function sendRoditWebhook(opts: {
   // (login_client), its SessionManager holds a session keyed by the recipient's
   // roditId; the SDK resolves the shared session id from storage and stamps it
   // into the signed webhook payload.
-  const sendOptions = { sessionRoditId: opts.peerId.trim() };
+  const sendOptions = { sessionRoditId: peerId };
 
   let sdkResult;
   try {
