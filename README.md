@@ -1,20 +1,20 @@
 # IdentyClaw Webhooks Gateway Component
 
-**OpenClaw plugin — RODiT-signed webhook ingress (`/hooks/wake`, `/hooks/agent`) and outbound `send_rodit_webhook`**
+**OpenClaw plugin — RODiT-signed webhook ingress on `/hooks/wake` and `/hooks/agent`**
 
 Part of [IdentyClaw](https://www.discernible.io/#developers).
 
-> **IdentyClaw component service:** OpenClaw plugin for **RODiT-signed webhook ingress** on agent gateways (`/hooks/wake`, `/hooks/agent`) and outbound delivery via `send_rodit_webhook`. Webhook signing and verification follow the same contract as [`idclawserver-idc`](https://github.com/discernible-io/idclawserver-idc) (via [`@rodit/rodit-auth-be`](https://www.npmjs.com/package/@rodit/rodit-auth-be) — not vendored). See [`openclaw-integration-guide.md`](https://github.com/discernible-io/idclawserver-idc/blob/main/references/openclaw-integration-guide.md) for Passport `webhook_url` metadata and event mapping.
+> **IdentyClaw component service:** OpenClaw plugin for **RODiT-signed webhook ingress** on agent gateways (`/hooks/wake`, `/hooks/agent`) and outbound delivery via `send_rodit_webhook`. Webhook signing and verification use [`@rodit/rodit-auth-be`](https://www.npmjs.com/package/@rodit/rodit-auth-be) per the IdentyClaw [OpenClaw integration guide](https://api.identyclaw.com/api/mcp/resource/doc:reference:openclaw-integration-guide) (MCP discovery: [api.identyclaw.com/.well-known/mcp](https://api.identyclaw.com/.well-known/mcp)).
 
 > [!IMPORTANT]
 > **Production deploy:** For nginx TLS, A2A peer messaging, signed webhooks, and GitHub Actions CI, use **[identyclaw-agents](https://github.com/discernible-io/identyclaw-agents)** instead of wiring plugins manually on the gateway host.
 
 ![IdentyClaw Webhooks Gateway Component](images/identyclaw-webhooks-banner.svg)
 
-[![GitHub](https://img.shields.io/github/stars/discernible-io/openclaw-identyclaw-webhooks-plugin?style=social)](https://github.com/discernible-io/openclaw-identyclaw-webhooks-plugin) [![npm version](https://img.shields.io/npm/v/@identyclaw/openclaw-identyclaw-webhooks-plugin.svg?label=npm)](https://www.npmjs.com/package/@identyclaw/openclaw-identyclaw-webhooks-plugin) [![License](https://img.shields.io/github/license/discernible-io/openclaw-identyclaw-webhooks-plugin)](https://github.com/discernible-io/openclaw-identyclaw-webhooks-plugin/blob/main/LICENSE) [![RODiT webhooks](https://img.shields.io/badge/webhooks-RODiT%20Ed25519-14b8a6)](https://github.com/discernible-io/idclawserver-idc)
+[![GitHub](https://img.shields.io/github/stars/discernible-io/openclaw-identyclaw-webhooks-plugin?style=social)](https://github.com/discernible-io/openclaw-identyclaw-webhooks-plugin) [![npm version](https://img.shields.io/npm/v/@identyclaw/openclaw-identyclaw-webhooks-plugin.svg?label=npm)](https://www.npmjs.com/package/@identyclaw/openclaw-identyclaw-webhooks-plugin) [![ClawHub](https://img.shields.io/badge/ClawHub-@identyclaw%2Fopenclaw--identyclaw--webhooks--plugin-22c55e)](https://clawhub.ai/plugins/@identyclaw/openclaw-identyclaw-webhooks-plugin) [![License](https://img.shields.io/github/license/discernible-io/openclaw-identyclaw-webhooks-plugin)](https://github.com/discernible-io/openclaw-identyclaw-webhooks-plugin/blob/main/LICENSE) [![RODiT webhooks](https://img.shields.io/badge/webhooks-RODiT%20Ed25519-14b8a6)](https://api.identyclaw.com/.well-known/mcp)
 
 <p align="center">
-  <img src="images/identyclaw-webhooks-ecosystem.svg" alt="IdentyClaw stack: OpenClaw gateway, this webhooks component, and idclawserver-idc webhook contract" width="960"/>
+  <img src="images/identyclaw-webhooks-ecosystem.svg" alt="IdentyClaw stack: OpenClaw gateway, this webhooks component, and IdentyClaw MCP webhook contract" width="960"/>
 </p>
 
 ## Role in the IdentyClaw stack
@@ -22,7 +22,7 @@ Part of [IdentyClaw](https://www.discernible.io/#developers).
 | Layer | Artifact | Responsibility |
 | --- | --- | --- |
 | Identity & HOLA | [`openclaw-identyclaw-plugin`](https://github.com/discernible-io/openclaw-identyclaw-plugin) | API login, DID, HOLA, operator tools |
-| Passport API (reference) | [`idclawserver-idc`](https://github.com/discernible-io/idclawserver-idc) | JWT issuance, token metadata (`webhook_url`), webhook event delivery contract |
+| Webhook contract (docs) | [IdentyClaw MCP](https://api.identyclaw.com/.well-known/mcp) | Token metadata (`webhook_url`), [OpenClaw integration guide](https://api.identyclaw.com/api/mcp/resource/doc:reference:openclaw-integration-guide), event mapping |
 | A2A wire protocol | [`openclaw-a2a-idc-plugin`](https://github.com/discernible-io/openclaw-a2a-idc-plugin) (`identyclaw-a2a`) | Agent Card discovery, `POST /a2a`, inbound JWT validation, outbound P2P login |
 | **Webhook ingress (this repo)** | **`identyclaw-webhooks`** | RODiT Ed25519 verification on `/hooks/*`, session correlation, outbound `send_rodit_webhook` |
 | Agent runtime | [OpenClaw](https://openclaw.ai) gateway | Chat, hooks, sandbox, tool execution |
@@ -35,7 +35,7 @@ Recommended together via **[identyclaw-agents](https://github.com/discernible-io
 
 Install this plugin when Passport-authenticated agents need to **receive signed webhooks from IdentyClaw** (HOLA validation outcomes, liveness pings) or **send signed webhooks to peers** — not for IdentyClaw API login, HOLA creation, or A2A messaging (use [`identyclaw-tools`](https://github.com/discernible-io/openclaw-identyclaw-plugin) and [`identyclaw-a2a`](https://github.com/discernible-io/openclaw-a2a-idc-plugin) for those).
 
-Inbound webhooks require `x-signature` and `x-timestamp` headers and Ed25519 verification through `@rodit/rodit-auth-be`, matching the receiver checklist in [`openclaw-integration-guide.md`](https://github.com/discernible-io/idclawserver-idc/blob/main/references/openclaw-integration-guide.md). Outbound `send_rodit_webhook` resolves peer gateway bases from the A2A outbound agent map, persisted A2A peers cache, or IdentyClaw identity API (`metadata.webhook_url`).
+Inbound webhooks require `x-signature` and `x-timestamp` headers and Ed25519 verification through `@rodit/rodit-auth-be`, matching the receiver checklist in the [OpenClaw integration guide](https://api.identyclaw.com/api/mcp/resource/doc:reference:openclaw-integration-guide). Outbound `send_rodit_webhook` resolves peer gateway bases from the A2A outbound agent map, persisted A2A peers cache, or IdentyClaw identity API (`metadata.webhook_url`).
 
 | Hook | OpenClaw behavior | IdentyClaw use case |
 | --- | --- | --- |
@@ -86,10 +86,10 @@ Follow the setup in [IdentyClaw usage](#-identyclaw-usage-rodit-webhooks), [Rece
 | Artifact | Install / link | Role |
 | --- | --- | --- |
 | **This plugin** (`identyclaw-webhooks`) | `openclaw plugins install clawhub:@identyclaw/openclaw-identyclaw-webhooks-plugin` | RODiT webhook ingress on `/hooks/wake`, `/hooks/agent`; outbound `send_rodit_webhook` |
-| Passport server (reference) | [`idclawserver-idc`](https://github.com/discernible-io/idclawserver-idc) | Canonical webhook contract, `webhook_url` metadata, [`openclaw-integration-guide.md`](https://github.com/discernible-io/idclawserver-idc/blob/main/references/openclaw-integration-guide.md) |
+| Webhook contract (MCP) | [`doc:reference:openclaw-integration-guide`](https://api.identyclaw.com/api/mcp/resource/doc:reference:openclaw-integration-guide) · [`.well-known/mcp`](https://api.identyclaw.com/.well-known/mcp) | Canonical webhook contract, `webhook_url` metadata, event mapping |
+| Credential layout | [`gennearaccount`](https://github.com/discernible-io/gennearaccount) · [`identyclaw-agents`](https://github.com/discernible-io/identyclaw-agents) | NEAR Passport JSON under `secrets/near-credentials/` |
 | A2A gateway component | `openclaw plugins install clawhub:@identyclaw/openclaw-a2a-plugin` | Peer discovery, outbound agent map used by `send_rodit_webhook` — [`openclaw-a2a-idc-plugin`](https://github.com/discernible-io/openclaw-a2a-idc-plugin) |
 | IdentyClaw tools | `openclaw plugins install clawhub:@identyclaw/openclaw-identyclaw-plugin` | API login, HOLA, identity, DID — [`openclaw-identyclaw-plugin`](https://github.com/discernible-io/openclaw-identyclaw-plugin) |
-| Outbound client (reference) | [`clienttest-idc`](https://github.com/discernible-io/clienttest-idc) | Credential file layout and webhook caller patterns |
 | Skill (workflows) | `openclaw skills install clawhub:identyclaw` | Operator playbooks and reference docs |
 | MCP (canonical docs) | `https://api.identyclaw.com/mcp` | Live IdentyClaw API documentation |
 
@@ -101,11 +101,11 @@ Follow the setup in [IdentyClaw usage](#-identyclaw-usage-rodit-webhooks), [Rece
 
 ## 🔐 IdentyClaw usage (RODiT webhooks)
 
-This component implements the OpenClaw-side webhook receiver described in [`idclawserver-idc`](https://github.com/discernible-io/idclawserver-idc): verify Ed25519 origin signatures, correlate webhooks to login sessions, and accept events from the Passport API or peer agents.
+This component implements the OpenClaw-side webhook receiver per the IdentyClaw [OpenClaw integration guide](https://api.identyclaw.com/api/mcp/resource/doc:reference:openclaw-integration-guide): verify Ed25519 origin signatures, correlate webhooks to login sessions, and accept events from the Passport API or peer agents.
 
 ### Environment variables
 
-Webhook verification and outbound signing use the NEAR Passport credentials file (same layout as [`clienttest-idc`](https://github.com/discernible-io/clienttest-idc)):
+Webhook verification and outbound signing use the NEAR Passport credentials file (same layout as [`gennearaccount`](https://github.com/discernible-io/gennearaccount) and [`identyclaw-agents`](https://github.com/discernible-io/identyclaw-agents) bootstrap):
 
 | Variable | Purpose |
 | -------- | ------- |
@@ -184,7 +184,7 @@ Example metadata (gateway base only):
 
 IdentyClaw POST target: `https://my-openclaw.example.com/hooks/agent`
 
-See [`token-metadata.md`](https://github.com/discernible-io/idclawserver-idc/blob/main/references/token-metadata.md) and [`openclaw-integration-guide.md`](https://github.com/discernible-io/idclawserver-idc/blob/main/references/openclaw-integration-guide.md) on the Passport server repo.
+See [`doc:reference:token-metadata`](https://api.identyclaw.com/api/mcp/resource/doc:reference:token-metadata) and [`doc:reference:openclaw-integration-guide`](https://api.identyclaw.com/api/mcp/resource/doc:reference:openclaw-integration-guide) via [IdentyClaw MCP](https://api.identyclaw.com/.well-known/mcp).
 
 ## 📥 Receiving webhooks (inbound)
 
@@ -222,7 +222,7 @@ On success, triggers a gateway heartbeat when `mode` is `"now"`.
 
 ### `/hooks/agent` payload
 
-Accepts any signed JSON body. Returns `{ ok: true, endpoint: "agent", accepted: true, sessionId, sessionKnown }`. Map `event` and `data` fields to agent prompts per the [OpenClaw integration guide](https://github.com/discernible-io/idclawserver-idc/blob/main/references/openclaw-integration-guide.md).
+Accepts any signed JSON body. Returns `{ ok: true, endpoint: "agent", accepted: true, sessionId, sessionKnown }`. Map `event` and `data` fields to agent prompts per the [OpenClaw integration guide](https://api.identyclaw.com/api/mcp/resource/doc:reference:openclaw-integration-guide).
 
 Example from IdentyClaw `POST /api/testhola` (development):
 
@@ -346,7 +346,7 @@ Outbound TLS verification follows `identyclaw-a2a` `outbound.tlsSkipVerify` (dev
 | `/hooks/_receipts` | GET | Plugin | List recent webhook receipts (test helper) |
 | `/hooks/_receipts` | DELETE | Plugin | Clear receipt log |
 
-Configurable via `endpoints` in plugin config. Default paths match [`idclawserver-idc`](https://github.com/discernible-io/idclawserver-idc) OpenClaw integration expectations.
+Configurable via `endpoints` in plugin config. Default paths match the IdentyClaw [OpenClaw integration guide](https://api.identyclaw.com/api/mcp/resource/doc:reference:openclaw-integration-guide).
 
 ### External URL layout (same host)
 
@@ -411,7 +411,7 @@ openclaw gateway restart
 
 Apache-2.0 — Copyright (c) Discernible IO. See [LICENSE](./LICENSE).
 
-[discernible.io](https://www.discernible.io/#developers) · [openclaw-integration-guide](https://github.com/discernible-io/idclawserver-idc/blob/main/references/openclaw-integration-guide.md)
+[discernible.io](https://www.discernible.io/#developers) · [OpenClaw integration guide](https://api.identyclaw.com/api/mcp/resource/doc:reference:openclaw-integration-guide) · [MCP discovery](https://api.identyclaw.com/.well-known/mcp)
 
 ## 🔗 Cross-links
 
@@ -420,4 +420,5 @@ Apache-2.0 — Copyright (c) Discernible IO. See [LICENSE](./LICENSE).
 - **IdentyClaw tools:** [discernible-io/openclaw-identyclaw-plugin](https://github.com/discernible-io/openclaw-identyclaw-plugin)
 - **RODiT SDK:** [discernible-io/sdk](https://github.com/discernible-io/sdk) — [`@rodit/rodit-auth-be`](https://www.npmjs.com/package/@rodit/rodit-auth-be) at runtime
 - **Deploy template:** [discernible-io/identyclaw-agents](https://github.com/discernible-io/identyclaw-agents) — installs this plugin, nginx `/hooks/*` routing, `./identyclaw.sh test`
-- **Passport server reference:** [discernible-io/idclawserver-idc](https://github.com/discernible-io/idclawserver-idc) — webhook contract, token metadata
+- **Webhook contract (MCP):** [doc:reference:openclaw-integration-guide](https://api.identyclaw.com/api/mcp/resource/doc:reference:openclaw-integration-guide) · [`.well-known/mcp`](https://api.identyclaw.com/.well-known/mcp)
+- **Credential layout:** [gennearaccount](https://github.com/discernible-io/gennearaccount) · [identyclaw-agents](https://github.com/discernible-io/identyclaw-agents)

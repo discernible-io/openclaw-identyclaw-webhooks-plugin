@@ -1,7 +1,7 @@
 {
   "name": "@identyclaw/openclaw-identyclaw-webhooks-plugin",
   "version": "0.1.7",
-  "description": "OpenClaw plugin — RODiT-signed webhook ingress (/hooks/wake, /hooks/agent) and outbound send_rodit_webhook",
+  "description": "OpenClaw plugin — RODiT-signed webhook ingress on /hooks/wake and /hooks/agent",
   "type": "module",
   "main": "./dist/index.js",
   "files": [
@@ -21,7 +21,7 @@
     "openclaw",
     "rodit",
     "webhooks",
-    "plugin"
+    "clawhub"
   ],
   "author": "IdentyClaw",
   "license": "Apache-2.0",

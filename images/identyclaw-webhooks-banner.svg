@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" role="img" aria-labelledby="banner-title banner-desc">
   <title id="banner-title">IdentyClaw Webhooks Gateway Component</title>
-  <desc id="banner-desc">Banner for the IdentyClaw OpenClaw webhooks plugin with RODiT Ed25519 ingress aligned to idclawserver-idc.</desc>
+  <desc id="banner-desc">Banner for the IdentyClaw OpenClaw webhooks plugin with RODiT Ed25519 ingress aligned to IdentyClaw MCP docs.</desc>
   <defs>
     <linearGradient id="banner-bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#0b1220"/>
@@ -33,8 +33,8 @@
 
   <text x="240" y="132" fill="#f8fafc" font-family="ui-sans-serif, system-ui, sans-serif" font-size="44" font-weight="700">IdentyClaw Webhooks Gateway Component</text>
   <text x="240" y="178" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="22">RODiT Ed25519 webhook ingress for OpenClaw</text>
-  <text x="240" y="214" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18">Signed /hooks/wake ∑ /hooks/agent ∑ send_rodit_webhook ∑ idclawserver-idc contract</text>
+  <text x="240" y="214" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18">Signed /hooks/wake ù /hooks/agent ù send_rodit_webhook ù IdentyClaw MCP contract</text>
 
   <rect x="240" y="244" width="720" height="2" fill="#334155" opacity="0.6"/>
-  <text x="240" y="276" fill="#5eead4" font-family="ui-monospace, monospace" font-size="14">x-signature + x-timestamp ∑ @rodit/rodit-auth-be ∑ Passport webhook_url metadata</text>
+  <text x="240" y="276" fill="#5eead4" font-family="ui-monospace, monospace" font-size="14">x-signature + x-timestamp ù @rodit/rodit-auth-be ù Passport webhook_url metadata</text>
 </svg>
