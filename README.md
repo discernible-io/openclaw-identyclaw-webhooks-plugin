@@ -1,6 +1,13 @@
 # IdentyClaw Webhooks Gateway Component
 
-> **IdentyClaw component service:** OpenClaw plugin for **RODiT-signed webhook ingress** on agent gateways (`/hooks/wake`, `/hooks/agent`) and outbound delivery via `send_rodit_webhook`. Webhook signing and verification follow the same contract as [`idclawserver-idc`](https://github.com/discernible-io/idclawserver-idc) (via [`@rodit/rodit-auth-be`](https://www.npmjs.com/package/@rodit/rodit-auth-be) — not vendored). See [`idclawserver-idc` OpenClaw integration guide](https://github.com/discernible-io/idclawserver-idc/blob/main/references/openclaw-integration-guide.md) for Passport `webhook_url` metadata and event mapping.
+**OpenClaw plugin — RODiT-signed webhook ingress (`/hooks/wake`, `/hooks/agent`) and outbound `send_rodit_webhook`**
+
+Part of [IdentyClaw](https://www.discernible.io/#developers).
+
+> **IdentyClaw component service:** OpenClaw plugin for **RODiT-signed webhook ingress** on agent gateways (`/hooks/wake`, `/hooks/agent`) and outbound delivery via `send_rodit_webhook`. Webhook signing and verification follow the same contract as [`idclawserver-idc`](https://github.com/discernible-io/idclawserver-idc) (via [`@rodit/rodit-auth-be`](https://www.npmjs.com/package/@rodit/rodit-auth-be) — not vendored). See [`openclaw-integration-guide.md`](https://github.com/discernible-io/idclawserver-idc/blob/main/references/openclaw-integration-guide.md) for Passport `webhook_url` metadata and event mapping.
+
+> [!IMPORTANT]
+> **Production deploy:** For nginx TLS, A2A peer messaging, signed webhooks, and GitHub Actions CI, use **[identyclaw-agents](https://github.com/discernible-io/identyclaw-agents)** instead of wiring plugins manually on the gateway host.
 
 ![IdentyClaw Webhooks Gateway Component](images/identyclaw-webhooks-banner.svg)
 
@@ -20,7 +27,13 @@
 | **Webhook ingress (this repo)** | **`identyclaw-webhooks`** | RODiT Ed25519 verification on `/hooks/*`, session correlation, outbound `send_rodit_webhook` |
 | Agent runtime | [OpenClaw](https://openclaw.ai) gateway | Chat, hooks, sandbox, tool execution |
 
-Install this plugin when Passport-authenticated agents need to **receive signed webhooks from IdentyClaw** (HOLA validation outcomes, liveness pings) or **send signed webhooks to peers** — not for IdentyClaw API login, HOLA creation, or A2A messaging (use `identyclaw-tools` and `identyclaw-a2a` for those).
+```text
+identyclaw-tools (identity) + identyclaw-a2a (peer map) + identyclaw-webhooks (this repo)
+```
+
+Recommended together via **[identyclaw-agents](https://github.com/discernible-io/identyclaw-agents)** deploy — the template installs all three plugins and nginx routes `/hooks/*` to the gateway.
+
+Install this plugin when Passport-authenticated agents need to **receive signed webhooks from IdentyClaw** (HOLA validation outcomes, liveness pings) or **send signed webhooks to peers** — not for IdentyClaw API login, HOLA creation, or A2A messaging (use [`identyclaw-tools`](https://github.com/discernible-io/openclaw-identyclaw-plugin) and [`identyclaw-a2a`](https://github.com/discernible-io/openclaw-a2a-idc-plugin) for those).
 
 Inbound webhooks require `x-signature` and `x-timestamp` headers and Ed25519 verification through `@rodit/rodit-auth-be`, matching the receiver checklist in [`openclaw-integration-guide.md`](https://github.com/discernible-io/idclawserver-idc/blob/main/references/openclaw-integration-guide.md). Outbound `send_rodit_webhook` resolves peer gateway bases from the A2A outbound agent map, persisted A2A peers cache, or IdentyClaw identity API (`metadata.webhook_url`).
 
@@ -81,6 +94,10 @@ Follow the setup in [IdentyClaw usage](#-identyclaw-usage-rodit-webhooks), [Rece
 | MCP (canonical docs) | `https://api.identyclaw.com/mcp` | Live IdentyClaw API documentation |
 
 `identyclaw-webhooks` shares NEAR Passport credential files with `identyclaw-a2a` and `identyclaw-tools`. Outbound peer resolution reads `plugins.entries.identyclaw-a2a.config.outbound.agents` (or legacy `a2a`).
+
+> **Required for outbound delivery:** [`send_rodit_webhook`](#tool-send_rodit_webhook) peer resolution depends on the [A2A plugin](https://github.com/discernible-io/openclaw-a2a-idc-plugin) outbound agent map (or identity API fallback). Pair with [identyclaw-tools](https://github.com/discernible-io/openclaw-identyclaw-plugin) for Passport session login and HOLA on the same host.
+
+> **Recommended deploy:** [`identyclaw-agents`](https://github.com/discernible-io/identyclaw-agents) installs this plugin, pins versions in `env.local`, and nginx routes `/hooks/wake` and `/hooks/agent` to the OpenClaw upstream. Run `./identyclaw.sh test` after deploy for the full smoke suite (A2A + webhooks).
 
 ## 🔐 IdentyClaw usage (RODiT webhooks)
 
@@ -382,16 +399,25 @@ Restart the gateway:
 openclaw gateway restart
 ```
 
-Runtime smoke test: enable `plugins.entries.identyclaw-webhooks`, POST a signed webhook to `/hooks/wake`, exercise `send_rodit_webhook`, poll `GET /hooks/_receipts`.
+### Smoke tests
+
+| Scope | Command / endpoint |
+| --- | --- |
+| **Full stack** | In [identyclaw-agents](https://github.com/discernible-io/identyclaw-agents): `./identyclaw.sh test` after deploy (A2A, webhooks, optional mail) |
+| **Local debugging** | `GET /hooks/_receipts` — list recent inbound receipts without re-signing payloads (see [Test helper](#test-helper-hooks_receipts)) |
+| **Manual** | Enable `plugins.entries.identyclaw-webhooks`, POST a signed webhook to `/hooks/wake`, exercise `send_rodit_webhook`, poll `GET /hooks/_receipts` |
 
 ## 📄 License
 
 Apache-2.0 — Copyright (c) Discernible IO. See [LICENSE](./LICENSE).
 
-## 🔗 IdentyClaw & upstream links
+[discernible.io](https://www.discernible.io/#developers) · [openclaw-integration-guide](https://github.com/discernible-io/idclawserver-idc/blob/main/references/openclaw-integration-guide.md)
+
+## 🔗 Cross-links
 
 - **This repo:** [discernible-io/openclaw-identyclaw-webhooks-plugin](https://github.com/discernible-io/openclaw-identyclaw-webhooks-plugin)
-- **Passport server reference:** [discernible-io/idclawserver-idc](https://github.com/discernible-io/idclawserver-idc) — webhook contract, token metadata, [OpenClaw integration guide](https://github.com/discernible-io/idclawserver-idc/blob/main/references/openclaw-integration-guide.md)
-- **A2A gateway component:** [discernible-io/openclaw-a2a-idc-plugin](https://github.com/discernible-io/openclaw-a2a-idc-plugin) — peer map and JWT login used for outbound delivery
+- **A2A plugin** (required for `send_rodit_webhook` peer resolution): [discernible-io/openclaw-a2a-idc-plugin](https://github.com/discernible-io/openclaw-a2a-idc-plugin)
 - **IdentyClaw tools:** [discernible-io/openclaw-identyclaw-plugin](https://github.com/discernible-io/openclaw-identyclaw-plugin)
-- **RODiT auth SDK:** [@rodit/rodit-auth-be](https://www.npmjs.com/package/@rodit/rodit-auth-be)
+- **RODiT SDK:** [discernible-io/sdk](https://github.com/discernible-io/sdk) — [`@rodit/rodit-auth-be`](https://www.npmjs.com/package/@rodit/rodit-auth-be) at runtime
+- **Deploy template:** [discernible-io/identyclaw-agents](https://github.com/discernible-io/identyclaw-agents) — installs this plugin, nginx `/hooks/*` routing, `./identyclaw.sh test`
+- **Passport server reference:** [discernible-io/idclawserver-idc](https://github.com/discernible-io/idclawserver-idc) — webhook contract, token metadata

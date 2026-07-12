@@ -1,7 +1,7 @@
 {
   "name": "@identyclaw/openclaw-identyclaw-webhooks-plugin",
   "version": "0.1.7",
-  "description": "IdentyClaw OpenClaw webhook ingress with RODiT Ed25519 origin signatures (/hooks/wake, /hooks/agent)",
+  "description": "OpenClaw plugin — RODiT-signed webhook ingress (/hooks/wake, /hooks/agent) and outbound send_rodit_webhook",
   "type": "module",
   "main": "./dist/index.js",
   "files": [
@@ -17,11 +17,11 @@
     "publish:clawhub": "node ./scripts/publish-clawhub.mjs"
   },
   "keywords": [
+    "identyclaw",
     "openclaw",
-    "plugin",
-    "webhooks",
     "rodit",
-    "identyclaw"
+    "webhooks",
+    "plugin"
   ],
   "author": "IdentyClaw",
   "license": "Apache-2.0",
@@ -32,7 +32,7 @@
   "bugs": {
     "url": "https://github.com/discernible-io/openclaw-identyclaw-webhooks-plugin/issues"
   },
-  "homepage": "https://github.com/discernible-io/openclaw-identyclaw-webhooks-plugin#readme",
+  "homepage": "https://www.discernible.io/#developers",
   "dependencies": {
     "@rodit/rodit-auth-be": "9.12.0"
   },
