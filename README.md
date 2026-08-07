@@ -154,7 +154,8 @@ Plugin id: **`identyclaw-webhooks`**
           "endpoints": ["/hooks/wake", "/hooks/agent"],
           "logLevel": "error",
           "persistPeerRegistry": false,
-          "peerRegistryPath": "/home/node/.openclaw/cache/peer-registry.json"
+          "peerRegistryPath": "/home/node/.openclaw/cache/peer-registry.json",
+          "enableReceiptsEndpoint": false
         }
       }
     }
@@ -168,6 +169,7 @@ Plugin id: **`identyclaw-webhooks`**
 | `logLevel` | `string` | `error` | Winston level for `rodit-auth-be` when loaded |
 | `persistPeerRegistry` | `boolean` | `false` | Persist dynamically resolved peers (from identity API) to disk |
 | `peerRegistryPath` | `string` | `/home/node/.openclaw/cache/peer-registry.json` | Path for peer registry cache |
+| `enableReceiptsEndpoint` | `boolean` | `false` | Opt-in `GET\|DELETE /hooks/_receipts` debug helper (local only; off in production) |
 
 ### Passport `webhook_url` alignment
 
@@ -205,7 +207,7 @@ For each `POST`:
 2. Resolve signer public key via SDK `extractWebhookSignerKey` (headers, with fallback to `StateManager.getPeerBase64urlJwkPublicKey()` from prior login).
 3. Call `authenticate_webhook` from `@rodit/rodit-auth-be`.
 4. Extract signed `session_id` and cross-reference against `SessionManager.hasSession`.
-5. Record receipt metadata and return JSON with `sessionId` and `sessionKnown`.
+5. Return JSON with `sessionId` and `sessionKnown` (optional receipt log when `enableReceiptsEndpoint` is on).
 
 ### `/hooks/wake` payload
 
@@ -239,14 +241,16 @@ Example from IdentyClaw `POST /api/testhola` (development):
 }
 ```
 
-### Test helper: `/hooks/_receipts`
+### Test helper: `/hooks/_receipts` (opt-in)
+
+Disabled by default. Set `enableReceiptsEndpoint: true` only for local/integration debugging — the route can list or clear session-linked receipt metadata.
 
 | Method | Description |
 | ------ | ----------- |
 | `GET /hooks/_receipts` | List recent webhook receipts (path, event, requestId, sessionId, sessionKnown, timestamp) |
 | `DELETE /hooks/_receipts` | Clear receipt log |
 
-Receipts persist under `/home/node/.openclaw/cache/webhook-receipts.json` (best-effort).
+When enabled, receipts persist under `/home/node/.openclaw/cache/webhook-receipts.json` (best-effort). When disabled, the route is not registered and no receipt metadata is recorded.
 
 ### Error responses
 
@@ -335,7 +339,7 @@ Outbound TLS verification follows `identyclaw-a2a` `outbound.tlsSkipVerify` (dev
 - **Peer resolution** — A2A outbound map, persisted peers cache, identity API `metadata.webhook_url` fallback
 - **Passport metadata alignment** — startup check of `webhook_url` vs A2A `publicBaseUrl`
 - **Quiet embed mode** — lazy-load `rodit-auth-be` with library-quiet defaults for chat TUI
-- **Test helper** — `GET|DELETE /hooks/_receipts` for integration debugging
+- **Optional test helper** — `GET|DELETE /hooks/_receipts` when `enableReceiptsEndpoint` is true (off by default)
 
 ## 🌐 HTTP Endpoints
 
@@ -343,10 +347,10 @@ Outbound TLS verification follows `identyclaw-a2a` `outbound.tlsSkipVerify` (dev
 | -------- | ------ | ---- | ----------- |
 | `/hooks/wake` | POST | RODiT `x-signature` + `x-timestamp` | Verify signature, enqueue heartbeat |
 | `/hooks/agent` | POST | RODiT `x-signature` + `x-timestamp` | Verify signature, accept agent task payload |
-| `/hooks/_receipts` | GET | Plugin | List recent webhook receipts (test helper) |
-| `/hooks/_receipts` | DELETE | Plugin | Clear receipt log |
+| `/hooks/_receipts` | GET | Plugin | List recent webhook receipts (opt-in; `enableReceiptsEndpoint`) |
+| `/hooks/_receipts` | DELETE | Plugin | Clear receipt log (opt-in; `enableReceiptsEndpoint`) |
 
-Configurable via `endpoints` in plugin config. Default paths match the IdentyClaw [OpenClaw integration guide](https://api.identyclaw.com/api/mcp/resource/doc:reference:openclaw-integration-guide).
+Configurable via `endpoints` in plugin config. Default paths match the IdentyClaw [OpenClaw integration guide](https://api.identyclaw.com/api/mcp/resource/doc:reference:openclaw-integration-guide). `/hooks/_receipts` is registered only when `enableReceiptsEndpoint` is `true`.
 
 ### External URL layout (same host)
 
@@ -404,8 +408,8 @@ openclaw gateway restart
 | Scope | Command / endpoint |
 | --- | --- |
 | **Full stack** | In [identyclaw-agents](https://github.com/discernible-io/identyclaw-agents): `./identyclaw.sh test` after deploy (A2A, webhooks, optional mail) |
-| **Local debugging** | `GET /hooks/_receipts` — list recent inbound receipts without re-signing payloads (see [Test helper](#test-helper-hooks_receipts)) |
-| **Manual** | Enable `plugins.entries.identyclaw-webhooks`, POST a signed webhook to `/hooks/wake`, exercise `send_rodit_webhook`, poll `GET /hooks/_receipts` |
+| **Local debugging** | Set `enableReceiptsEndpoint: true`, then `GET /hooks/_receipts` — list recent inbound receipts (see [Test helper](#test-helper-hooks_receipts-opt-in)) |
+| **Manual** | Enable `plugins.entries.identyclaw-webhooks`, POST a signed webhook to `/hooks/wake`, exercise `send_rodit_webhook` |
 
 ## 📄 License
 

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.9 — 2026-08-07
+
+- Security: `/hooks/_receipts` is no longer registered by default. Set
+  `enableReceiptsEndpoint: true` for local debugging only; receipt recording and
+  disk persistence are skipped when the endpoint is disabled.
+
 ## 0.1.8 — 2026-07-16
 
 - Bump `@rodit/rodit-auth-be` to `9.14.0`.

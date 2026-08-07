@@ -158,7 +158,12 @@ type PluginLogger = {
   error: (msg: string) => void;
 };
 
-function createRoditWebhookHandler(endpoint: string, logLevel: string | undefined, logger: PluginLogger) {
+function createRoditWebhookHandler(
+  endpoint: string,
+  logLevel: string | undefined,
+  logger: PluginLogger,
+  receiptsEnabled: boolean,
+) {
   return async (req: IncomingMessage, res: ServerResponse) => {
     if (req.method !== "POST") {
       res.statusCode = 405;
@@ -230,7 +235,9 @@ function createRoditWebhookHandler(endpoint: string, logLevel: string | undefine
           sessionKnown = false;
         }
       }
-      recordReceipt(endpoint, rawPayload, headerValue(req, "x-request-id"), sessionId, sessionKnown);
+      if (receiptsEnabled) {
+        recordReceipt(endpoint, rawPayload, headerValue(req, "x-request-id"), sessionId, sessionKnown);
+      }
       if (endpoint === "/hooks/wake") {
         const wake = normalizeWakePayload(rawPayload);
         if (!wake.ok) {
@@ -266,6 +273,7 @@ export default definePluginEntry({
       logLevel?: string;
       persistPeerRegistry?: boolean;
       peerRegistryPath?: string;
+      enableReceiptsEndpoint?: boolean;
     };
     configurePeerRegistry({
       persist: config.persistPeerRegistry === true,
@@ -275,35 +283,45 @@ export default definePluginEntry({
       path.startsWith("/") ? path : `/${path}`,
     );
     const logLevel = config.logLevel?.trim() || undefined;
+    // Opt-in only: exposes session-linked receipt metadata. Keep off in production.
+    const receiptsEnabled = config.enableReceiptsEndpoint === true;
 
     for (const endpoint of endpoints) {
       api.registerHttpRoute({
         path: endpoint,
         auth: "plugin",
-        handler: createRoditWebhookHandler(endpoint, logLevel, api.logger),
+        handler: createRoditWebhookHandler(endpoint, logLevel, api.logger, receiptsEnabled),
       });
       api.logger.info(`[identyclaw-webhooks] registered ${endpoint} (RODiT x-signature + x-timestamp)`);
     }
 
-    api.registerHttpRoute({
-      path: "/hooks/_receipts",
-      auth: "plugin",
-      handler: async (req, res) => {
-        if (req.method === "DELETE") {
-          clearReceipts();
-          sendJson(res, 200, { ok: true, cleared: true });
-          return;
-        }
-        if (req.method !== "GET") {
-          res.statusCode = 405;
-          res.setHeader("Allow", "GET, DELETE");
-          res.end("Method Not Allowed");
-          return;
-        }
-        sendJson(res, 200, { ok: true, receipts: webhookReceipts });
-      },
-    });
-    api.logger.info("[identyclaw-webhooks] registered GET|DELETE /hooks/_receipts (test helper)");
+    if (receiptsEnabled) {
+      api.registerHttpRoute({
+        path: "/hooks/_receipts",
+        auth: "plugin",
+        handler: async (req, res) => {
+          if (req.method === "DELETE") {
+            clearReceipts();
+            sendJson(res, 200, { ok: true, cleared: true });
+            return;
+          }
+          if (req.method !== "GET") {
+            res.statusCode = 405;
+            res.setHeader("Allow", "GET, DELETE");
+            res.end("Method Not Allowed");
+            return;
+          }
+          sendJson(res, 200, { ok: true, receipts: webhookReceipts });
+        },
+      });
+      api.logger.info(
+        "[identyclaw-webhooks] registered GET|DELETE /hooks/_receipts (enableReceiptsEndpoint=true)",
+      );
+    } else {
+      api.logger.info(
+        "[identyclaw-webhooks] /hooks/_receipts disabled (set enableReceiptsEndpoint=true for local debugging only)",
+      );
+    }
 
     api.registerTool({
       name: "send_rodit_webhook",

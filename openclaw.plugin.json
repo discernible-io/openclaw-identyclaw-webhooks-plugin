@@ -2,7 +2,7 @@
   "id": "identyclaw-webhooks",
   "name": "IdentyClaw Webhooks",
   "description": "Inbound OpenClaw webhooks with RODiT Ed25519 origin signatures (x-signature + x-timestamp)",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "contracts": {
     "tools": ["send_rodit_webhook"]
   },
@@ -29,6 +29,10 @@
       "peerRegistryPath": {
         "type": "string",
         "description": "Path for peer registry cache (default /home/node/.openclaw/cache/peer-registry.json)"
+      },
+      "enableReceiptsEndpoint": {
+        "type": "boolean",
+        "description": "Opt-in debug endpoint GET|DELETE /hooks/_receipts (default false; local debugging only)"
       }
     }
   }
