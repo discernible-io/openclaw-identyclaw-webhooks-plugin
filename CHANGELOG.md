@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.8 — 2026-07-16
+
+- Bump `@rodit/rodit-auth-be` to `9.14.0`.
+
 ## 0.1.7 — 2026-07-06
 
 - Fix `send_rodit_webhook`: catch identity API `IDENTITY_NOT_FOUND` (404) for
