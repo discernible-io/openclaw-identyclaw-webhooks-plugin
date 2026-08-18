@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { a2aOutboundConfig, type OpenClawConfig } from "./a2a-config.js";
+import { a2aOutboundConfig, a2aPluginEntryKey, type OpenClawConfig } from "./a2a-config.js";
 import {
   agentCardUrlToBase,
   getA2aPersistedPeer,
@@ -7,6 +7,7 @@ import {
   registerPeerFromTokenId,
   resolvePeerBaseFromEntry,
 } from "./peer-registry.js";
+import { logWithContext, type PluginLogger } from "./plugin-log.js";
 import {
   applyWebhookTlsSkip,
   buildPeerWebhookReq,
@@ -30,17 +31,43 @@ export function resolveConfiguredPeerBase(
   return null;
 }
 
-export async function resolveOutboundPeerBase(config: OpenClawConfig, peerId: string): Promise<string> {
+export async function resolveOutboundPeerBase(
+  config: OpenClawConfig,
+  peerId: string,
+  logger?: PluginLogger,
+): Promise<string> {
   const configured = resolveConfiguredPeerBase(config, peerId);
   if (configured) return configured;
 
   const a2aCached = getA2aPersistedPeer(peerId);
-  if (a2aCached) return resolvePeerBaseFromEntry(a2aCached);
+  if (a2aCached) {
+    logWithContext(logger, "info", "Peer resolution used fallback", {
+      operation: "outbound.resolvePeer",
+      peerId,
+      used: "a2a.peers",
+      skipped: ["outbound.agents"],
+    });
+    return resolvePeerBaseFromEntry(a2aCached);
+  }
 
   const cached = getRegisteredPeer(peerId);
-  if (cached) return resolvePeerBaseFromEntry(cached);
+  if (cached) {
+    logWithContext(logger, "info", "Peer resolution used fallback", {
+      operation: "outbound.resolvePeer",
+      peerId,
+      used: "plugin.registry",
+      skipped: ["outbound.agents", "a2a.peers"],
+    });
+    return resolvePeerBaseFromEntry(cached);
+  }
 
-  const entry = await registerPeerFromTokenId(peerId);
+  logWithContext(logger, "info", "Peer resolution used fallback", {
+    operation: "outbound.resolvePeer",
+    peerId,
+    used: "identity.api",
+    skipped: ["outbound.agents", "a2a.peers", "plugin.registry"],
+  });
+  const entry = await registerPeerFromTokenId(peerId, { logger });
   return resolvePeerBaseFromEntry(entry);
 }
 
@@ -88,17 +115,33 @@ export async function sendRoditWebhook(opts: {
   text?: string;
   delaySeconds?: number;
   hookPath?: string;
+  logger?: PluginLogger;
 }): Promise<SendRoditWebhookResult> {
   const delaySeconds = opts.delaySeconds ?? 10;
   const hookPath = (opts.hookPath ?? "hooks/wake").replace(/^\/+/, "");
   const peerId = opts.peerId.trim();
+  const logger = opts.logger;
+
+  if (a2aPluginEntryKey(opts.config) === "a2a") {
+    logWithContext(logger, "info", "A2A plugin config used fallback", {
+      operation: "config.a2aPluginEntry",
+      used: "a2a",
+      skipped: ["identyclaw-a2a"],
+    });
+  }
 
   let targetBase: string;
   try {
-    targetBase = await resolveOutboundPeerBase(opts.config, peerId);
+    targetBase = await resolveOutboundPeerBase(opts.config, peerId, logger);
   } catch (err) {
     if (isIdentityNotFoundError(err)) {
       const message = err instanceof Error ? err.message : String(err);
+      logWithContext(logger, "warn", "Outbound webhook failed", {
+        operation: "outbound.sendRoditWebhook",
+        peerId,
+        statusCode: 404,
+        error: { name: "Error", message, code: "IDENTITY_NOT_FOUND" },
+      });
       return {
         url: "",
         peerId: opts.peerId,
@@ -149,6 +192,18 @@ export async function sendRoditWebhook(opts: {
         : await client.sendWebhookToEndpoint(payload, endpoint, peerReq, sendOptions);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    logWithContext(
+      logger,
+      "error",
+      "Outbound webhook failed",
+      {
+        operation: "outbound.sendRoditWebhook",
+        peerId,
+        path: endpoint,
+        statusCode: 502,
+      },
+      err,
+    );
     return {
       url,
       peerId: opts.peerId,
@@ -161,10 +216,18 @@ export async function sendRoditWebhook(opts: {
   }
 
   const ok = sdkResult.isValid === true;
+  const requestId = sdkResult.requestId ?? "";
+  logWithContext(logger, ok ? "info" : "warn", ok ? "Outbound webhook sent" : "Outbound webhook failed", {
+    operation: "outbound.sendRoditWebhook",
+    peerId,
+    path: endpoint,
+    requestId,
+    statusCode: ok ? 200 : 502,
+  });
   return {
     url,
     peerId: opts.peerId,
-    requestId: sdkResult.requestId ?? "",
+    requestId,
     delaySeconds,
     status: ok ? 200 : 502,
     ok,

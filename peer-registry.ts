@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { logWithContext, type PluginLogger } from "./plugin-log.js";
 import { getRoditClient } from "./rodit-runtime.js";
 
 const A2A_PEERS_PATH = join(
@@ -232,13 +233,13 @@ export async function fetchTokenIdentityFull(client: RoditApiClient, tokenId: st
 
 export async function registerPeerFromTokenId(
   tokenId: string,
-  client?: RoditApiClient,
+  options?: { client?: RoditApiClient; logger?: PluginLogger },
 ): Promise<OutboundPeerEntry> {
   const normalized = tokenId.trim();
   const cached = getRegisteredPeer(normalized);
   if (cached) return cached;
 
-  const roditClient = (client ?? (await getRoditClient())) as RoditApiClient;
+  const roditClient = (options?.client ?? (await getRoditClient())) as RoditApiClient;
   const identity = await fetchTokenIdentityFull(roditClient, normalized);
   const contactUri = identity?.dn?.contactUri?.trim() ?? "";
   const webhookUrl = extractWebhookUrlFromIdentity(identity);
@@ -249,6 +250,12 @@ export async function registerPeerFromTokenId(
     throw new Error(`Peer '${normalized}' has no metadata.webhook_url or contactUri in identity token/full response`);
   }
 
+  logWithContext(options?.logger, "info", "Peer identity URL used fallback", {
+    operation: "outbound.registerPeerFromTokenId",
+    peerId: normalized,
+    used: "identity.contactUri",
+    skipped: ["identity.webhook_url"],
+  });
   const parsed = parseContactUri(contactUri);
   return registerPeer(normalized, parsed);
 }

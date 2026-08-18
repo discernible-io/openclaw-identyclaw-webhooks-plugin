@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Inbound webhook errors use the compact `{ error: { code, message, details? }, requestId, timestamp }` envelope; signature failures use `WEBHOOK_SIGNATURE_INVALID`.
+- Structured logs include `component`, `operation`, and `requestId` (no `[identyclaw-webhooks]` message prefixes).
+- Allowed peer, signer-key, and legacy A2A config fallbacks are logged with `used` and `skipped` so the chosen path is auditable.
+
 ## 0.1.9 — 2026-08-07
 
 - Security: `/hooks/_receipts` is no longer registered by default. Set

@@ -254,13 +254,31 @@ When enabled, receipts persist under `/home/node/.openclaw/cache/webhook-receipt
 
 ### Error responses
 
+Inbound webhook errors use a compact envelope. `requestId` is taken from `x-request-id` when present, otherwise a ULID is generated. `timestamp` is ISO-8601 UTC.
+
+```json
+{
+  "error": {
+    "code": "WEBHOOK_SIGNATURE_INVALID",
+    "message": "Webhook payload Ed25519 signature did not verify"
+  },
+  "requestId": "01HX9X0T9CS1EM0WQ7R6F5B2VY",
+  "timestamp": "2026-08-18T16:15:00.000Z"
+}
+```
+
 | HTTP | Code | Meaning |
 | ---- | ---- | ------- |
 | 400 | `MISSING_AUTH_PARAMS` | Missing `x-signature` or `x-timestamp` |
+| 400 | `INVALID_REQUEST` | Empty body, invalid JSON, or wake payload missing text |
 | 401 | `MISSING_SIGNER_KEY` | Signer public key not present in request |
 | 401 | `SIGNER_KEY_MISMATCH` | Signer key does not match expected identity |
-| 401 | `INVALID_WEBHOOK_SIGNATURE` | Signature or timestamp invalid |
-| 413 | — | Body exceeds 256 KiB |
+| 401 | `WEBHOOK_SIGNATURE_INVALID` | Signature or timestamp invalid |
+| 405 | `METHOD_NOT_ALLOWED` | Method other than POST (or GET/DELETE on receipts) |
+| 413 | `INVALID_PARAMETERS` | Body exceeds 256 KiB |
+| 500 | `WEBHOOK_PROCESSING_FAILED` | Unexpected failure while handling a verified or in-flight request |
+
+Successful responses keep `{ ok: true, … }` and include the same `requestId`.
 
 ## 📤 Sending webhooks (outbound)
 
