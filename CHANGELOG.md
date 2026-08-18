@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.10 — 2026-08-18
+
 - Inbound webhook errors use the compact `{ error: { code, message, details? }, requestId, timestamp }` envelope; signature failures use `WEBHOOK_SIGNATURE_INVALID`.
 - Structured logs include `component`, `operation`, and `requestId` (no `[identyclaw-webhooks]` message prefixes).
 - Allowed peer, signer-key, and legacy A2A config fallbacks are logged with `used` and `skipped` so the chosen path is auditable.
