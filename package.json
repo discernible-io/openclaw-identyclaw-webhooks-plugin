@@ -34,7 +34,7 @@
   },
   "homepage": "https://www.discernible.io/#developers",
   "dependencies": {
-    "@rodit/rodit-auth-be": "9.14.0"
+    "@rodit/rodit-auth-be": "9.16.2"
   },
   "peerDependencies": {
     "openclaw": ">=2026.5.27"
