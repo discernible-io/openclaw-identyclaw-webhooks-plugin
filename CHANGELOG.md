@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.11 — 2026-09-19
+
+- Bump `@rodit/rodit-auth-be` to `9.16.2`.
+
 ## 0.1.10 — 2026-08-18
 
 - Inbound webhook errors use the compact `{ error: { code, message, details? }, requestId, timestamp }` envelope; signature failures use `WEBHOOK_SIGNATURE_INVALID`.

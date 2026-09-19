@@ -2,9 +2,11 @@
   "id": "identyclaw-webhooks",
   "name": "IdentyClaw Webhooks",
   "description": "Inbound OpenClaw webhooks with RODiT Ed25519 origin signatures (x-signature + x-timestamp)",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "contracts": {
-    "tools": ["send_rodit_webhook"]
+    "tools": [
+      "send_rodit_webhook"
+    ]
   },
   "activation": {
     "onStartup": true
@@ -15,7 +17,9 @@
     "properties": {
       "endpoints": {
         "type": "array",
-        "items": { "type": "string" },
+        "items": {
+          "type": "string"
+        },
         "description": "Webhook paths to expose (default: /hooks/wake, /hooks/agent)"
       },
       "logLevel": {
