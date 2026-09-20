@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.12 — 2026-09-20
+
+- Mark release ready for OpenClaw gateway **2026.9.5** IdentyClaw template sync (no runtime API changes).
+
 ## 0.1.11 — 2026-09-19
 
 - Bump `@rodit/rodit-auth-be` to `9.16.2`.
