@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.13 — 2026-09-28
+
+- Auto-discover Passport credentials from `secrets/near-credentials` (`.active` or sole `*.json`) when `NEAR_CREDENTIALS_FILE_PATH` is unset; outbound signer and Rodit client use the same resolution.
+
 ## 0.1.12 — 2026-09-20
 
 - Mark release ready for OpenClaw gateway **2026.9.5** IdentyClaw template sync (no runtime API changes).

@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { a2aOutboundConfig, a2aPluginEntryKey, type OpenClawConfig } from "./a2a-config.js";
+import { ensureNearCredentialsFileEnv, requireNearCredentialsFilePath } from "./near-credentials-path.js";
 import {
   agentCardUrlToBase,
   getA2aPersistedPeer,
@@ -76,10 +77,7 @@ export function outboundTlsSkipVerify(config: OpenClawConfig): boolean {
 }
 
 export function loadNearSignerFromEnv(): { accountId: string; privateKey: string } {
-  const credPath = process.env.NEAR_CREDENTIALS_FILE_PATH?.trim();
-  if (!credPath) {
-    throw new Error("NEAR_CREDENTIALS_FILE_PATH is not set");
-  }
+  const credPath = requireNearCredentialsFilePath();
   const data = JSON.parse(readFileSync(credPath, "utf8")) as Record<string, string>;
   const accountId = data.implicit_account_id || data.account_id || data.accountId;
   const privateKey = data.private_key || data.privateKey;

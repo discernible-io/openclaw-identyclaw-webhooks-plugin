@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
+import { ensureNearCredentialsFileEnv } from "./near-credentials-path.js";
 
 export type RoditWebhookSendResult = {
   isValid: boolean;
@@ -108,12 +109,7 @@ export async function getRoditClient(logLevel?: string): Promise<RoditClientLike
     const { RoditClient } = require("@rodit/rodit-auth-be") as {
       RoditClient: { create: (opts: { role: string }) => Promise<RoditClientLike> };
     };
-    if (
-      !process.env.NEAR_CREDENTIALS_FILE_PATH?.trim() &&
-      !process.env.RODIT_NEAR_CREDENTIALS_SOURCE?.trim()
-    ) {
-      throw new Error("RODiT credentials not configured (NEAR_CREDENTIALS_FILE_PATH)");
-    }
+    ensureNearCredentialsFileEnv();
     roditClientPromise = RoditClient.create({ role: "client" });
   }
   return roditClientPromise;
