@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.1.14 — 2026-10-01
+
+- Target OpenClaw Gateway **2026.9.7** (`peerDependencies` / `compat` / `build` pins).
+- Replace `/app/dist/heartbeat-wake-*.js` filesystem scrape with
+  `api.runtime.system.enqueueSystemEvent` + `api.runtime.system.requestHeartbeat`
+  (`source: "hook"`, `intent: "immediate"`) for `/hooks/wake`.
+- `/hooks/wake` success responses now include `eventOutcome` (`queued` | `coalesced`).
+- Require Node **≥ 24.16** (OpenClaw 2026.9.7 engine floor).
+
 ## 0.1.13 — 2026-09-28
 
 - Auto-discover Passport credentials from `secrets/near-credentials` (`.active` or sole `*.json`) when `NEAR_CREDENTIALS_FILE_PATH` is unset; outbound signer and Rodit client use the same resolution.

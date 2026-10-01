@@ -384,7 +384,7 @@ agent-a.example.com/.well-known/agent-card.json  → A2A discovery
 
 ## Requirements
 
-- OpenClaw gateway **≥ 2026.5.27**
+- OpenClaw gateway **≥ 2026.9.7**
 - Node **≥ 22.19.0**
 - NEAR Passport credentials (`NEAR_CREDENTIALS_FILE_PATH` or auto-discovered `secrets/near-credentials` via `.active` / sole `*.json`)
 - For outbound `send_rodit_webhook`: `plugins.entries.identyclaw-a2a.config.outbound.agents` peer map (or resolvable `token_id`)

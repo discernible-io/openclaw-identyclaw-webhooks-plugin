@@ -1,7 +1,7 @@
 {
   "name": "@identyclaw/openclaw-identyclaw-webhooks-plugin",
-  "version": "0.1.13",
-  "description": "OpenClaw plugin \u2014 RODiT-signed webhook ingress on /hooks/wake and /hooks/agent",
+  "version": "0.1.14",
+  "description": "OpenClaw plugin — RODiT-signed webhook ingress on /hooks/wake and /hooks/agent",
   "type": "module",
   "main": "./dist/index.js",
   "files": [
@@ -37,7 +37,7 @@
     "@rodit/rodit-auth-be": "9.16.2"
   },
   "peerDependencies": {
-    "openclaw": ">=2026.5.27"
+    "openclaw": ">=2026.9.7"
   },
   "peerDependenciesMeta": {
     "openclaw": {
@@ -46,22 +46,22 @@
   },
   "devDependencies": {
     "esbuild": "^0.25.5",
-    "openclaw": "2026.5.27"
+    "openclaw": "2026.9.7"
   },
   "engines": {
-    "node": ">=22.19.0"
+    "node": ">=24.16.0"
   },
   "openclaw": {
     "extensions": [
       "./dist/index.js"
     ],
     "compat": {
-      "pluginApi": ">=2026.5.27",
-      "minGatewayVersion": "2026.5.27"
+      "pluginApi": ">=2026.9.7",
+      "minGatewayVersion": "2026.9.7"
     },
     "build": {
-      "openclawVersion": "2026.5.27",
-      "pluginSdkVersion": "2026.5.27"
+      "openclawVersion": "2026.9.7",
+      "pluginSdkVersion": "2026.9.7"
     }
   }
 }

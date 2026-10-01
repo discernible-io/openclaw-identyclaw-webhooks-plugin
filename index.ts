@@ -1,8 +1,7 @@
-import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { definePluginEntry, type OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { a2aPluginConfig, a2aPluginEntryKey } from "./a2a-config.js";
 import { sendRoditWebhook } from "./send-rodit-webhook.js";
 import { configurePeerRegistry } from "./peer-registry.js";
@@ -141,15 +140,63 @@ async function readRawBody(req: IncomingMessage, maxBytes = MAX_BODY_BYTES): Pro
   });
 }
 
-async function requestGatewayHeartbeat(mode: "now" | "next-heartbeat") {
-  if (mode !== "now") return;
-  const dist = "/app/dist";
-  const entry = readdirSync(dist).find((name) => name.startsWith("heartbeat-wake-") && name.endsWith(".js"));
-  if (!entry) return;
-  const mod = (await import(pathToFileURL(join(dist, entry)).href)) as {
-    requestHeartbeat?: (opts: { source: string; reason: string }) => void;
-  };
-  mod.requestHeartbeat?.({ source: "hook", reason: "hook:wake" });
+/**
+ * Resolve the agent main-session key for wake enqueue without importing the
+ * routing barrel (keep focused import: plugin-entry only). Matches Gateway
+ * `resolveAgentMainSessionKey` / `session.scope === "global"` behavior.
+ */
+function resolveWakeSessionKey(api: OpenClawPluginApi): { sessionKey: string; agentId: string } {
+  const cfg = (api.runtime?.config?.current?.() ?? api.config ?? {}) as Record<string, unknown>;
+  const session = (cfg.session && typeof cfg.session === "object"
+    ? (cfg.session as Record<string, unknown>)
+    : {}) as Record<string, unknown>;
+  const agents = (cfg.agents && typeof cfg.agents === "object"
+    ? (cfg.agents as Record<string, unknown>)
+    : {}) as Record<string, unknown>;
+  const list = Array.isArray(agents.list) ? agents.list : [];
+  const defaultEntry =
+    list.find(
+      (entry) =>
+        entry &&
+        typeof entry === "object" &&
+        (entry as Record<string, unknown>).default === true,
+    ) ?? list[0];
+  const agentId =
+    defaultEntry &&
+    typeof defaultEntry === "object" &&
+    typeof (defaultEntry as Record<string, unknown>).id === "string" &&
+    String((defaultEntry as Record<string, unknown>).id).trim()
+      ? String((defaultEntry as Record<string, unknown>).id).trim()
+      : typeof agents.default === "string" && agents.default.trim()
+        ? agents.default.trim()
+        : "main";
+  if (session.scope === "global") {
+    return { sessionKey: "global", agentId };
+  }
+  const mainKey =
+    typeof session.mainKey === "string" && session.mainKey.trim()
+      ? session.mainKey.trim()
+      : "main";
+  return { sessionKey: `agent:${agentId}:${mainKey}`, agentId };
+}
+
+function dispatchWake(
+  api: OpenClawPluginApi,
+  text: string,
+  mode: "now" | "next-heartbeat",
+): "queued" | "coalesced" {
+  const { sessionKey, agentId } = resolveWakeSessionKey(api);
+  const queued = api.runtime.system.enqueueSystemEvent(text, { sessionKey });
+  if (mode === "now") {
+    api.runtime.system.requestHeartbeat({
+      source: "hook",
+      intent: "immediate",
+      reason: "hook:wake",
+      agentId,
+      sessionKey,
+    });
+  }
+  return queued ? "queued" : "coalesced";
 }
 
 type WakePayload =
@@ -196,6 +243,7 @@ function normalizeWakePayload(rawPayload: string): WakePayload {
 }
 
 function createRoditWebhookHandler(
+  api: OpenClawPluginApi,
   endpoint: string,
   logLevel: string | undefined,
   logger: PluginLogger,
@@ -334,8 +382,15 @@ function createRoditWebhookHandler(
           fail(400, wake.code, wake.message, wake.details);
           return;
         }
-        await requestGatewayHeartbeat(wake.mode);
-        respond(200, { ok: true, mode: wake.mode, sessionId, sessionKnown, requestId });
+        const eventOutcome = dispatchWake(api, wake.text, wake.mode);
+        respond(200, {
+          ok: true,
+          mode: wake.mode,
+          eventOutcome,
+          sessionId,
+          sessionKnown,
+          requestId,
+        });
         return;
       }
       if (endpoint === "/hooks/agent") {
@@ -394,7 +449,7 @@ export default definePluginEntry({
       api.registerHttpRoute({
         path: endpoint,
         auth: "plugin",
-        handler: createRoditWebhookHandler(endpoint, logLevel, logger, receiptsEnabled),
+        handler: createRoditWebhookHandler(api, endpoint, logLevel, logger, receiptsEnabled),
       });
       logWithContext(logger, "info", "HTTP route registered", {
         operation: "plugin.registerHttpRoute",
