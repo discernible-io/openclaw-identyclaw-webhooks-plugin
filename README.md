@@ -445,3 +445,13 @@ Apache-2.0 — Copyright (c) Discernible IO. See [LICENSE](./LICENSE).
 - **Deploy template:** [discernible-io/identyclaw-agents](https://github.com/discernible-io/identyclaw-agents) — installs this plugin, nginx `/hooks/*` routing, `./identyclaw.sh test`
 - **Webhook contract (MCP):** [doc:reference:openclaw-integration-guide](https://api.identyclaw.com/api/mcp/resource/doc:reference:openclaw-integration-guide) · [`.well-known/mcp`](https://api.identyclaw.com/.well-known/mcp)
 - **Credential layout:** [gennearaccount](https://github.com/discernible-io/gennearaccount) · [identyclaw-agents](https://github.com/discernible-io/identyclaw-agents)
+
+<!-- discernible-io:product-links -->
+## Links
+
+Maintained by [Discernible](https://www.discernible.io/).
+
+- **Product:** [discernible.io](https://www.discernible.io/)
+- **Get a Passport:** [purchase.identyclaw.com](https://purchase.identyclaw.com) (buy once — no subscription)
+- **Verify HOLA:** [verify.identyclaw.com](https://verify.identyclaw.com)
+<!-- /discernible-io:product-links -->
